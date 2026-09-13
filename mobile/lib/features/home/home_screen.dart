@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme.dart';
 import '../auth/auth_state.dart';
+import '../driver/driver_screen.dart';
 import '../student/student_shell.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -14,6 +15,9 @@ class HomeScreen extends ConsumerWidget {
 
     if (user?.role == 'STUDENT') {
       return const StudentShell();
+    }
+    if (user?.role == 'DRIVER') {
+      return const DriverScreen();
     }
 
     return Scaffold(
