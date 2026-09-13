@@ -136,8 +136,9 @@ For EVERY implementation phase:
 12. Invoke reviewer again for final verification.
 13. If security-sensitive changes were made, perform final security-reviewer verification too.
 14. Produce a truthful phase report with actual commands/results.
-15. STOP.
-16. NEVER begin the next phase without explicit user approval.
+15. COMMIT the verified milestone.
+16. CONTINUE automatically to the next roadmap phase (no approval required between normal phases).
+17. STOP only for a genuine blocker: unavailable required credential, human-only decision with meaningful consequences, destructive production operation, or a persistent technical blocker after reasonable repair attempts.
 
 Never claim a command/test/migration passed unless actually executed.
 

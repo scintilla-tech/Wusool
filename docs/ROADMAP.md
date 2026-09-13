@@ -1,36 +1,37 @@
 # WASL — Implementation Roadmap
 
-This is the living implementation plan for WASL (multi-tenant university female transportation automation SaaS). Each phase is documented in `docs/phases/PHASE_X.md` and implemented following the workflow in `AGENTS.md`.
+Living plan for WASL (multi-tenant university female transportation SaaS). Each phase has a spec in `docs/phases/PHASE_X.md`. Workflow per `AGENTS.md`: PLAN → IMPLEMENT → FORMAT → TYPECHECK → LINT → TEST → REVIEW → SECURITY REVIEW → FIX → RETEST → COMMIT → CONTINUE.
 
 ## Status legend
-- ✅ VERIFIED — implemented, reviewed, and independently audited
-- 🚧 IN PROGRESS — currently being implemented
-- ⬜ PLANNED — not started
+✅ VERIFIED · 🚧 IN PROGRESS · ⬜ PLANNED
 
-## Backend phases
-
-| Phase | Title | Status | Notes |
-| --- | --- | --- | --- |
-| 1 | Backend Foundation | ✅ VERIFIED | Express + TS + Prisma + Zod + Helmet + CORS + logging + errors + health + schema/migrations |
-| 2 | Authentication & Authorization | ✅ VERIFIED | Argon2id, short access JWT + rotating refresh sessions, role-based authZ, tenant-context middleware, endpoint rate limiting |
-| 3 | Tenants, Users & Identity | ⬜ PLANNED | Tenant provisioning, user CRUD, role profiles (student/driver/supervisor/field-supervisor), sensitive-field DTOs |
-| 4 | Transportation Master Data | ⬜ PLANNED | Branches, neighborhoods, routes, route stops, buses |
-| 5 | Assignments | ⬜ PLANNED | Active StudentAssignment / DriverAssignment / SupervisorBusAssignment with transactional service logic + partial-index constraints |
-| 6 | Trips & Attendance | ⬜ PLANNED | DailyTrip, AttendanceIntent, TripStudent (WAITING/BOARDED/NOT_READY/MISSED), boarding flow |
-| 7 | Notifications | ⬜ PLANNED | Provider abstraction (FCM / Huawei Push / APNs), device tokens |
-| 8 | Realtime (Socket.IO) | ⬜ PLANNED | Socket auth + resource authorization, driver GPS during ACTIVE morning trips (3-min interval), location privacy |
-| 9 | Maps & Geofence | ⬜ PLANNED | Maps provider abstraction, local Haversine arrival geofence, validated arrival/dwell auto-completion |
-| 10 | Reports & Audit | ⬜ PLANNED | Historical reports, audit trail surfacing |
-
-## Mobile phase
-
-| Phase | Title | Status | Notes |
-| --- | --- | --- | --- |
-| M1 | Flutter + Riverpod apps | ⬜ PLANNED | Student / Driver / Supervisor apps (starts after core backend phases) |
+| Phase | Title | Status |
+| --- | --- | --- |
+| 1 | Backend Foundation | ✅ VERIFIED |
+| 2 | Authentication + Tenant Context + Authorization | ✅ VERIFIED |
+| 3 | University Structure + Users + Employee Management + Assignments | ⬜ PLANNED |
+| 4 | Student Registration + Profile + Attendance Intent | ⬜ PLANNED |
+| 5 | Trip Lifecycle + Driver Workflow + TripStudent | ⬜ PLANNED |
+| 6 | Realtime Secure Tracking + Geofence | ⬜ PLANNED |
+| 7 | Notifications + Device Management | ⬜ PLANNED |
+| 8 | Flutter Foundation + Design System + Authentication | ⬜ PLANNED |
+| 9 | Student Flutter Experience | ⬜ PLANNED |
+| 10 | Driver Flutter Experience | ⬜ PLANNED |
+| 11 | Supervisor + Field Supervisor Experience | ⬜ PLANNED |
+| 12 | University Administration Experience | ⬜ PLANNED |
+| 13 | Platform Administration | ⬜ PLANNED |
+| 14 | Storage/Documents + Provider Integrations | ⬜ PLANNED |
+| 15 | Full Security/Integration Audit | ⬜ PLANNED |
+| 16 | Performance + k6 Load Testing + Optimization | ⬜ PLANNED |
+| 17 | Deployment Readiness + Documentation + Final QA | ⬜ PLANNED |
 
 ## Phase boundaries
 
-- Each phase is implemented, tested, reviewed (reviewer + security-reviewer where applicable), fixed, re-tested, and committed before the next begins.
-- Phases that touch auth, tenant isolation, sensitive data, sockets, storage, or security MUST also pass the security-reviewer.
-- Cross-tenant composite foreign keys and `DeviceToken`/`Notification`/`UserDocument`/`AuditLog` tenantId derivation are **Phase 2+ preconditions** (documented in `backend/README.md`).
-- Redis is introduced only when multi-instance deployment needs distributed rate limiting / Socket.IO adapter / distributed state.
+- Each phase implemented, tested, reviewed (reviewer + security-reviewer where applicable), fixed, re-tested, committed before the next.
+- Auth/tenant/sensitive-data/sockets/storage/security phases MUST also pass security-reviewer.
+- Cross-tenant composite FKs and `DeviceToken/Notification/UserDocument/AuditLog` tenantId derivation are Phase 2+ preconditions (`backend/README.md`).
+- Redis only when multi-instance deployment requires it.
+
+## Vertical slice priority
+
+Prioritize the first end-to-end vertical slice (student login → attendance intent → dashboard; driver login → trip → pickup list) before deep backend breadth. Begin Flutter as soon as the slice's backend exists.
