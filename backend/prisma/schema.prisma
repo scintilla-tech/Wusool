@@ -1,0 +1,503 @@
+// WASL — Prisma schema (Phase 1 foundation)
+//
+// Conventions:
+// - IDs and phone numbers are Strings, never numeric identifiers.
+// - Tenant isolation is application-layer; PostgreSQL RLS is NOT active.
+// - National ID / Iqama is HIGHLY SENSITIVE and never exposed in DTOs.
+// - Student home coordinates are sensitive location data and excluded from DTOs.
+// - Partial unique indexes (active assignments) are created via raw SQL migration,
+//   because Prisma cannot express partial unique indexes.
+// - firstName/lastName/phone are core identity stored on User. Employee-specific
+//   HR fields (employeeId, nationalIdOrIqama, nationality, joinDate, iqamaExpiry,
+//   employmentStatus) live on the role profiles.
+// - Cross-tenant FK integrity is enforced at the application/service layer
+//   (tenant-aware queries). Composite cross-tenant FKs are deferred (see PHASE_1).
+// - Historical data (assignments/trips/attendance) is preserved via RESTRICT
+//   referential actions instead of CASCADE deletes.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  DRIVER
+  SUPERVISOR
+  FIELD_SUPERVISOR
+  UNIVERSITY_ADMIN
+  PLATFORM_SUPER_ADMIN
+}
+
+enum EmploymentStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum AttendanceIntentType {
+  ATTENDING
+  ABSENT
+}
+
+enum TripStudentStatus {
+  WAITING
+  BOARDED
+  NOT_READY
+  MISSED
+}
+
+enum TripStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum DevicePlatform {
+  IOS
+  ANDROID
+  HUAWEI
+  WEB
+}
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  code      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users                    User[]
+  studentProfiles          StudentProfile[]
+  driverProfiles           DriverProfile[]
+  supervisorProfiles       SupervisorProfile[]
+  fieldSupervisorProfiles  FieldSupervisorProfile[]
+  branches                 Branch[]
+  neighborhoods            Neighborhood[]
+  routes                   Route[]
+  routeNeighborhoods       RouteNeighborhood[]
+  buses                    Bus[]
+  studentAssignments       StudentAssignment[]
+  driverAssignments        DriverAssignment[]
+  supervisorBusAssignments SupervisorBusAssignment[]
+  attendanceIntents        AttendanceIntent[]
+  dailyTrips               DailyTrip[]
+  tripStudents             TripStudent[]
+  deviceTokens             DeviceToken[]
+  notifications            Notification[]
+  userDocuments            UserDocument[]
+  auditLogs                AuditLog[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  tenantId     String?
+  tenant       Tenant?  @relation(fields: [tenantId], references: [id])
+  role         Role
+  firstName    String
+  lastName     String
+  email        String?
+  phone        String
+  passwordHash String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  studentProfile         StudentProfile?
+  driverProfile          DriverProfile?
+  supervisorProfile      SupervisorProfile?
+  fieldSupervisorProfile FieldSupervisorProfile?
+  deviceTokens           DeviceToken[]
+  notifications          Notification[]
+  userDocuments          UserDocument[]
+  auditLogs              AuditLog[]
+  refreshSessions        RefreshSession[]
+
+  @@unique([tenantId, phone])
+  @@unique([tenantId, email])
+  @@index([tenantId, role])
+}
+
+model StudentProfile {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  studentId     String
+  homeLatitude  Float?
+  homeLongitude Float?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  studentAssignments StudentAssignment[]
+  attendanceIntents  AttendanceIntent[]
+  tripStudents       TripStudent[]
+
+  @@unique([tenantId, studentId])
+  @@index([tenantId])
+}
+
+model DriverProfile {
+  id                String           @id @default(cuid())
+  userId            String           @unique
+  user              User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  tenantId          String
+  tenant            Tenant           @relation(fields: [tenantId], references: [id])
+  employeeId        String
+  nationalIdOrIqama String?
+  nationality       String?
+  joinDate          DateTime?
+  iqamaExpiry       DateTime?
+  employmentStatus  EmploymentStatus @default(ACTIVE)
+  licenseNumber     String?
+  licenseExpiry     DateTime?
+  isActive          Boolean          @default(true)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  driverAssignments DriverAssignment[]
+  dailyTrips        DailyTrip[]
+
+  @@unique([tenantId, employeeId])
+  @@index([tenantId])
+}
+
+model SupervisorProfile {
+  id                String           @id @default(cuid())
+  userId            String           @unique
+  user              User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  tenantId          String
+  tenant            Tenant           @relation(fields: [tenantId], references: [id])
+  employeeId        String
+  nationalIdOrIqama String?
+  nationality       String?
+  joinDate          DateTime?
+  iqamaExpiry       DateTime?
+  employmentStatus  EmploymentStatus @default(ACTIVE)
+  isActive          Boolean          @default(true)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  supervisorBusAssignments SupervisorBusAssignment[]
+  dailyTrips               DailyTrip[]
+
+  @@unique([tenantId, employeeId])
+  @@index([tenantId])
+}
+
+// FieldSupervisorProfile is explicitly modeled as a distinct role profile.
+// It has no assignment/trip relations in Phase 1; those will be added in the
+// field-supervision phase.
+model FieldSupervisorProfile {
+  id                String           @id @default(cuid())
+  userId            String           @unique
+  user              User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  tenantId          String
+  tenant            Tenant           @relation(fields: [tenantId], references: [id])
+  employeeId        String
+  nationalIdOrIqama String?
+  nationality       String?
+  joinDate          DateTime?
+  iqamaExpiry       DateTime?
+  employmentStatus  EmploymentStatus @default(ACTIVE)
+  isActive          Boolean          @default(true)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@unique([tenantId, employeeId])
+  @@index([tenantId])
+}
+
+model Branch {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  name      String
+  code      String?
+  latitude  Float?
+  longitude Float?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  routes             Route[]
+  studentAssignments StudentAssignment[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+}
+
+model Neighborhood {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  name      String
+  latitude  Float?
+  longitude Float?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  routeNeighborhoods RouteNeighborhood[]
+
+  @@index([tenantId])
+}
+
+model Route {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  branchId  String?
+  branch    Branch?  @relation(fields: [branchId], references: [id])
+  name      String
+  code      String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  routeNeighborhoods RouteNeighborhood[]
+  dailyTrips         DailyTrip[]
+  studentAssignments StudentAssignment[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+}
+
+model RouteNeighborhood {
+  id             String       @id @default(cuid())
+  tenantId       String
+  tenant         Tenant       @relation(fields: [tenantId], references: [id])
+  routeId        String
+  route          Route        @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  neighborhoodId String
+  neighborhood   Neighborhood @relation(fields: [neighborhoodId], references: [id], onDelete: Cascade)
+  sequenceOrder  Int          @default(0)
+  createdAt      DateTime     @default(now())
+
+  @@unique([routeId, neighborhoodId])
+  @@index([tenantId])
+}
+
+model Bus {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  plateNumber String
+  name        String?
+  capacity    Int?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  driverAssignments        DriverAssignment[]
+  supervisorBusAssignments SupervisorBusAssignment[]
+  dailyTrips               DailyTrip[]
+
+  @@unique([tenantId, plateNumber])
+  @@index([tenantId])
+}
+
+model StudentAssignment {
+  id               String         @id @default(cuid())
+  tenantId         String
+  tenant           Tenant         @relation(fields: [tenantId], references: [id])
+  studentProfileId String
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Restrict)
+  routeId          String?
+  route            Route?         @relation(fields: [routeId], references: [id])
+  branchId         String?
+  branch           Branch?        @relation(fields: [branchId], references: [id])
+  isActive         Boolean        @default(true)
+  assignedAt       DateTime       @default(now())
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([tenantId, studentProfileId])
+  @@index([tenantId])
+}
+
+model DriverAssignment {
+  id              String        @id @default(cuid())
+  tenantId        String
+  tenant          Tenant        @relation(fields: [tenantId], references: [id])
+  driverProfileId String
+  driverProfile   DriverProfile @relation(fields: [driverProfileId], references: [id], onDelete: Restrict)
+  busId           String
+  bus             Bus           @relation(fields: [busId], references: [id], onDelete: Restrict)
+  isActive        Boolean       @default(true)
+  assignedAt      DateTime      @default(now())
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([tenantId, busId])
+  @@index([tenantId])
+}
+
+model SupervisorBusAssignment {
+  id                  String            @id @default(cuid())
+  tenantId            String
+  tenant              Tenant            @relation(fields: [tenantId], references: [id])
+  supervisorProfileId String
+  supervisorProfile   SupervisorProfile @relation(fields: [supervisorProfileId], references: [id], onDelete: Restrict)
+  busId               String
+  bus                 Bus               @relation(fields: [busId], references: [id], onDelete: Restrict)
+  isActive            Boolean           @default(true)
+  assignedAt          DateTime          @default(now())
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@index([tenantId, busId])
+  @@index([tenantId])
+}
+
+model AttendanceIntent {
+  id               String               @id @default(cuid())
+  tenantId         String
+  tenant           Tenant               @relation(fields: [tenantId], references: [id])
+  studentProfileId String
+  studentProfile   StudentProfile       @relation(fields: [studentProfileId], references: [id], onDelete: Restrict)
+  dailyTripId      String
+  dailyTrip        DailyTrip            @relation(fields: [dailyTripId], references: [id], onDelete: Restrict)
+  intent           AttendanceIntentType
+  note             String?
+  createdAt        DateTime             @default(now())
+
+  @@unique([dailyTripId, studentProfileId])
+  @@index([tenantId, studentProfileId])
+}
+
+model DailyTrip {
+  id                  String             @id @default(cuid())
+  tenantId            String
+  tenant              Tenant             @relation(fields: [tenantId], references: [id])
+  routeId             String?
+  route               Route?             @relation(fields: [routeId], references: [id])
+  busId               String?
+  bus                 Bus?               @relation(fields: [busId], references: [id])
+  driverProfileId     String?
+  driverProfile       DriverProfile?     @relation(fields: [driverProfileId], references: [id])
+  supervisorProfileId String?
+  supervisorProfile   SupervisorProfile? @relation(fields: [supervisorProfileId], references: [id])
+  tripDate            DateTime           @db.Date
+  status              TripStatus         @default(SCHEDULED)
+  scheduledStartTime  DateTime?
+  scheduledEndTime    DateTime?
+  startedAt           DateTime?
+  completedAt         DateTime?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  tripStudents      TripStudent[]
+  attendanceIntents AttendanceIntent[]
+
+  @@index([tenantId, tripDate])
+  @@index([tenantId])
+}
+
+model TripStudent {
+  id               String            @id @default(cuid())
+  tenantId         String
+  tenant           Tenant            @relation(fields: [tenantId], references: [id])
+  dailyTripId      String
+  dailyTrip        DailyTrip         @relation(fields: [dailyTripId], references: [id], onDelete: Restrict)
+  studentProfileId String
+  studentProfile   StudentProfile    @relation(fields: [studentProfileId], references: [id], onDelete: Restrict)
+  status           TripStudentStatus @default(WAITING)
+  boardedAt        DateTime?
+  missedAt         DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@unique([dailyTripId, studentProfileId])
+  @@index([tenantId, dailyTripId])
+}
+
+model DeviceToken {
+  id        String         @id @default(cuid())
+  tenantId  String?
+  tenant    Tenant?        @relation(fields: [tenantId], references: [id])
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String
+  platform  DevicePlatform
+  isActive  Boolean        @default(true)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@unique([userId, token])
+  @@index([userId])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  tenantId  String?
+  tenant    Tenant?   @relation(fields: [tenantId], references: [id])
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String?
+  title     String
+  body      String?
+  data      Json?
+  isRead    Boolean   @default(false)
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, isRead])
+  @@index([tenantId])
+}
+
+model UserDocument {
+  id           String   @id @default(cuid())
+  tenantId     String?
+  tenant       Tenant?  @relation(fields: [tenantId], references: [id])
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documentType String
+  documentKey  String
+  fileName     String?
+  mimeType     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+  @@index([tenantId])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  tenantId    String?
+  tenant      Tenant?  @relation(fields: [tenantId], references: [id])
+  actorUserId String?
+  actor       User?    @relation(fields: [actorUserId], references: [id])
+  action      String
+  entityType  String?
+  entityId    String?
+  metadata    Json?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([actorUserId])
+}
+
+model RefreshSession {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  userAgent String?
+  ipAddress String?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}

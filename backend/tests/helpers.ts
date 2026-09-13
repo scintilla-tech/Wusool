@@ -1,0 +1,27 @@
+import { vi } from 'vitest';
+import type { PrismaClient } from '@prisma/client';
+import { createApp } from '../src/app';
+import { createLogger } from '../src/config/logger';
+import type { EnvConfig } from '../src/config/env';
+
+export const testEnv: EnvConfig = {
+  NODE_ENV: 'test',
+  PORT: 3000,
+  DATABASE_URL: 'postgresql://test:test@localhost:5432/wasl_test?schema=public',
+  JWT_ACCESS_SECRET: 'test-access-secret-1234567890',
+  JWT_REFRESH_SECRET: 'test-refresh-secret-1234567890',
+  CORS_ALLOWED_ORIGINS: 'http://localhost:3000',
+  LOG_LEVEL: 'silent',
+};
+
+export function mockPrisma(): PrismaClient {
+  return {
+    $queryRaw: vi.fn().mockResolvedValue([{ '?column?': 1 }]),
+    $disconnect: vi.fn().mockResolvedValue(undefined),
+  } as unknown as PrismaClient;
+}
+
+export function createTestApp(prisma: PrismaClient = mockPrisma()) {
+  const logger = createLogger(testEnv);
+  return createApp({ config: testEnv, logger, prisma });
+}
