@@ -22,14 +22,18 @@ import { createNotificationsRouter } from './modules/notifications/notifications
 import { createSupervisorRouter } from './modules/supervisor/supervisor.routes';
 import { createAdminRouter } from './modules/admin/admin.routes';
 import { createPlatformRouter } from './modules/platform/platform.routes';
+import { createDocumentsRouter } from './modules/documents/documents.routes';
 import { LocationService } from './modules/tracking/location.service';
 import { TripService } from './modules/trips/trips.service';
+import { LocalStorageProvider, type StorageProvider } from './providers/storage';
+import { join } from 'node:path';
 
 export interface AppDeps {
   config: EnvConfig;
   logger: Logger;
   prisma: PrismaClient;
   locationService?: LocationService;
+  storage?: StorageProvider;
 }
 
 export function createApp({
@@ -37,6 +41,7 @@ export function createApp({
   logger,
   prisma,
   locationService: injectedLocation,
+  storage: injectedStorage,
 }: AppDeps): Express {
   const app = express();
 
@@ -72,6 +77,8 @@ export function createApp({
 
   const scopeDeps = { prisma, config };
   const locationService = injectedLocation ?? new LocationService(prisma, new TripService(prisma));
+  const storage =
+    injectedStorage ?? new LocalStorageProvider(join(process.cwd(), '.tmp', 'storage'));
 
   app.use('/api/v1/auth', createAuthRouter({ prisma, config }));
   app.use('/api/v1/structure', createStructureRouter(scopeDeps));
@@ -87,6 +94,7 @@ export function createApp({
   app.use('/api/v1/platform', createPlatformRouter(scopeDeps));
   app.use('/api/v1/devices', createDevicesRouter(scopeDeps));
   app.use('/api/v1/notifications', createNotificationsRouter(scopeDeps));
+  app.use('/api/v1/documents', createDocumentsRouter({ ...scopeDeps, storage }));
 
   app.use(notFoundHandler);
   app.use(errorHandler(logger, config.NODE_ENV === 'production'));
