@@ -9,8 +9,8 @@ Living plan for WASL (multi-tenant university female transportation SaaS). Each 
 | --- | --- | --- |
 | 1 | Backend Foundation | ✅ VERIFIED |
 | 2 | Authentication + Tenant Context + Authorization | ✅ VERIFIED |
-| 3 | University Structure + Users + Employee Management + Assignments | ⬜ PLANNED |
-| 4 | Student Registration + Profile + Attendance Intent | ⬜ PLANNED |
+| 3 | University Structure + Users + Employee Management + Assignments | ✅ VERIFIED |
+| 4 | Student Registration + Profile + Attendance Intent | 🚧 IN PROGRESS |
 | 5 | Trip Lifecycle + Driver Workflow + TripStudent | ⬜ PLANNED |
 | 6 | Realtime Secure Tracking + Geofence | ⬜ PLANNED |
 | 7 | Notifications + Device Management | ⬜ PLANNED |

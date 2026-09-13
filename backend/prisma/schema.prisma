@@ -364,14 +364,14 @@ model AttendanceIntent {
   tenant           Tenant               @relation(fields: [tenantId], references: [id])
   studentProfileId String
   studentProfile   StudentProfile       @relation(fields: [studentProfileId], references: [id], onDelete: Restrict)
-  dailyTripId      String
-  dailyTrip        DailyTrip            @relation(fields: [dailyTripId], references: [id], onDelete: Restrict)
+  tripDate         DateTime             @db.Date
   intent           AttendanceIntentType
   note             String?
   createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
 
-  @@unique([dailyTripId, studentProfileId])
-  @@index([tenantId, studentProfileId])
+  @@unique([studentProfileId, tripDate])
+  @@index([tenantId, tripDate])
 }
 
 model DailyTrip {
@@ -395,8 +395,7 @@ model DailyTrip {
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
 
-  tripStudents      TripStudent[]
-  attendanceIntents AttendanceIntent[]
+  tripStudents TripStudent[]
 
   @@index([tenantId, tripDate])
   @@index([tenantId])

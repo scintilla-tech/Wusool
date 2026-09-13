@@ -26,6 +26,10 @@ export const envSchema = z
       .default('30d'),
     CORS_ALLOWED_ORIGINS: z.string().min(1, 'CORS_ALLOWED_ORIGINS is required'),
     TRUST_PROXY: z.coerce.number().int().min(0).max(10).default(0),
+    ATTENDANCE_CUTOFF: z
+      .string()
+      .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'ATTENDANCE_CUTOFF must be a HH:mm time')
+      .default('07:00'),
     LOG_LEVEL: z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
       .default('info'),
@@ -69,6 +73,7 @@ const ENV_KEYS = [
   'JWT_REFRESH_TTL',
   'CORS_ALLOWED_ORIGINS',
   'TRUST_PROXY',
+  'ATTENDANCE_CUTOFF',
   'LOG_LEVEL',
 ] as const;
 

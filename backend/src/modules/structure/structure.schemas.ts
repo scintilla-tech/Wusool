@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { latitudeSchema, longitudeSchema, nameSchema, uuidSchema } from '../../validation/common';
+import { latitudeSchema, longitudeSchema, nameSchema, idSchema } from '../../validation/common';
 
 export const listQuerySchema = z
   .object({
@@ -44,7 +44,7 @@ export const routeCreateSchema = z
   .object({
     name: nameSchema,
     code: z.string().trim().min(1).max(64).optional(),
-    branchId: uuidSchema.optional(),
+    branchId: idSchema.optional(),
   })
   .strict();
 
@@ -52,7 +52,7 @@ export const routeUpdateSchema = routeCreateSchema.partial().strict();
 
 export const routeStopSchema = z
   .object({
-    neighborhoodId: uuidSchema,
+    neighborhoodId: idSchema,
     sequenceOrder: z.coerce.number().int().min(0).default(0),
   })
   .strict();

@@ -14,6 +14,7 @@ export const testEnv: EnvConfig = {
   JWT_REFRESH_TTL: '30d',
   CORS_ALLOWED_ORIGINS: 'http://localhost:3000',
   TRUST_PROXY: 0,
+  ATTENDANCE_CUTOFF: '07:00',
   LOG_LEVEL: 'silent',
 };
 

@@ -1,24 +1,24 @@
 import { z } from 'zod';
-import { uuidSchema } from '../../validation/common';
+import { idSchema } from '../../validation/common';
 
 export const assignStudentSchema = z
   .object({
-    studentProfileId: uuidSchema,
-    routeId: uuidSchema.optional(),
-    branchId: uuidSchema.optional(),
+    studentProfileId: idSchema,
+    routeId: idSchema.optional(),
+    branchId: idSchema.optional(),
   })
   .strict();
 
 export const assignDriverSchema = z
   .object({
-    driverProfileId: uuidSchema,
-    busId: uuidSchema,
+    driverProfileId: idSchema,
+    busId: idSchema,
   })
   .strict();
 
 export const assignSupervisorSchema = z
   .object({
-    supervisorProfileId: uuidSchema,
-    busId: uuidSchema,
+    supervisorProfileId: idSchema,
+    busId: idSchema,
   })
   .strict();

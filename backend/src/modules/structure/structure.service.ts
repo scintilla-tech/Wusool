@@ -25,7 +25,7 @@ export class StructureService {
     return { items, page: opts.page, limit: opts.limit, total };
   }
 
-  async createBranch(tenantId: string, data: Prisma.BranchUncheckedCreateInput) {
+  async createBranch(tenantId: string, data: Omit<Prisma.BranchUncheckedCreateInput, 'tenantId'>) {
     return this.prisma.branch.create({ data: { ...data, tenantId } });
   }
 
@@ -58,7 +58,10 @@ export class StructureService {
     return { items, page: opts.page, limit: opts.limit, total };
   }
 
-  async createNeighborhood(tenantId: string, data: Prisma.NeighborhoodUncheckedCreateInput) {
+  async createNeighborhood(
+    tenantId: string,
+    data: Omit<Prisma.NeighborhoodUncheckedCreateInput, 'tenantId'>,
+  ) {
     return this.prisma.neighborhood.create({ data: { ...data, tenantId } });
   }
 
@@ -95,7 +98,7 @@ export class StructureService {
     return { items, page: opts.page, limit: opts.limit, total };
   }
 
-  async createBus(tenantId: string, data: Prisma.BusUncheckedCreateInput) {
+  async createBus(tenantId: string, data: Omit<Prisma.BusUncheckedCreateInput, 'tenantId'>) {
     return this.prisma.bus.create({ data: { ...data, tenantId } });
   }
 
@@ -145,7 +148,7 @@ export class StructureService {
     return route;
   }
 
-  async createRoute(tenantId: string, data: Prisma.RouteUncheckedCreateInput) {
+  async createRoute(tenantId: string, data: Omit<Prisma.RouteUncheckedCreateInput, 'tenantId'>) {
     if (data.branchId) await this.assertBranch(tenantId, data.branchId);
     return this.prisma.route.create({ data: { ...data, tenantId } });
   }

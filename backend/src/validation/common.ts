@@ -2,6 +2,12 @@ import { z } from 'zod';
 
 export const uuidSchema = z.string().trim().uuid('Invalid UUID');
 
+// WASL entity IDs are Prisma CUIDs (v1: 'c' + 24 lowercase alphanumeric chars).
+export const idSchema = z
+  .string()
+  .trim()
+  .regex(/^c[a-z0-9]{24}$/, 'Invalid ID');
+
 export const emailSchema = z
   .string()
   .trim()
