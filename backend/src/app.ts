@@ -9,6 +9,10 @@ import { createRequestLogger } from './middlewares/requestLogger';
 import { notFoundHandler, errorHandler } from './middlewares/errorHandler';
 import { createHealthRouter } from './modules/health/health.routes';
 import { createAuthRouter } from './modules/auth/auth.routes';
+import { createStructureRouter } from './modules/structure/structure.routes';
+import { createEmployeesRouter } from './modules/employees/employees.routes';
+import { createStudentsRouter } from './modules/students/students.routes';
+import { createAssignmentsRouter } from './modules/assignments/assignments.routes';
 
 export interface AppDeps {
   config: EnvConfig;
@@ -48,7 +52,14 @@ export function createApp({ config, logger, prisma }: AppDeps): Express {
   app.use(express.urlencoded({ extended: false, limit: '100kb' }));
 
   app.use('/health', createHealthRouter({ prisma, logger }));
-  app.use('/auth', createAuthRouter({ prisma, config }));
+
+  const scopeDeps = { prisma, config };
+
+  app.use('/api/v1/auth', createAuthRouter({ prisma, config }));
+  app.use('/api/v1/structure', createStructureRouter(scopeDeps));
+  app.use('/api/v1/employees', createEmployeesRouter(scopeDeps));
+  app.use('/api/v1/students', createStudentsRouter(scopeDeps));
+  app.use('/api/v1/assignments', createAssignmentsRouter(scopeDeps));
 
   app.use(notFoundHandler);
   app.use(errorHandler(logger, config.NODE_ENV === 'production'));

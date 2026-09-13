@@ -15,6 +15,29 @@ function sanitizeIssues(issues: ZodIssue[]): Array<{ path: (string | number)[]; 
   return issues.map((issue) => ({ path: issue.path, message: issue.message }));
 }
 
+interface PrismaErrorLike {
+  code?: string;
+}
+
+/** Map Prisma known request errors (P20xx) to appropriate HTTP responses. */
+function mapPrismaError(
+  err: unknown,
+): { status: number; code: string; message: string } | undefined {
+  if (typeof err !== 'object' || err === null) return undefined;
+  const code = (err as PrismaErrorLike).code;
+  if (typeof code !== 'string' || !code.startsWith('P20')) return undefined;
+  switch (code) {
+    case 'P2002':
+      return { status: 409, code: 'CONFLICT', message: 'Resource already exists' };
+    case 'P2025':
+      return { status: 404, code: 'NOT_FOUND', message: 'Resource not found' };
+    case 'P2003':
+      return { status: 422, code: 'FOREIGN_KEY_VIOLATION', message: 'Related resource not found' };
+    default:
+      return undefined;
+  }
+}
+
 interface HttpErrorLike {
   status?: number;
   statusCode?: number;
@@ -87,6 +110,16 @@ export function errorHandler(logger: Logger, isProduction: boolean) {
           message: 'Invalid request',
           ...(isProduction ? {} : { details: sanitizeIssues(err.issues) }),
         },
+      });
+      return;
+    }
+
+    const prismaError = mapPrismaError(err);
+    if (prismaError) {
+      logger.warn({ requestId }, 'Database constraint error');
+      res.status(prismaError.status).json({
+        success: false,
+        error: { code: prismaError.code, message: prismaError.message },
       });
       return;
     }

@@ -41,7 +41,7 @@ async function buildApp(prisma: ReturnType<typeof makePrisma>) {
   const app = express();
   app.use(express.json());
   app.use(
-    '/auth',
+    '/api/v1/auth',
     createAuthRouter({ prisma: prisma as unknown as PrismaClient, config: testEnv }),
   );
   app.use(errorHandler(createLogger(testEnv), false));
@@ -61,7 +61,7 @@ describe('auth routes', () => {
 
       const app = await buildApp(prisma);
       const res = await request(app)
-        .post('/auth/login')
+        .post('/api/v1/auth/login')
         .send({ tenantCode: 'KSU', phone: '0551234567', password: PASSWORD });
 
       expect(res.status).toBe(200);
@@ -89,7 +89,7 @@ describe('auth routes', () => {
 
       const app = await buildApp(prisma);
       const res = await request(app)
-        .post('/auth/login')
+        .post('/api/v1/auth/login')
         .send({ tenantCode: 'KSU', phone: '0551234567', password: PASSWORD });
 
       expect(res.status).toBe(401);
@@ -103,7 +103,7 @@ describe('auth routes', () => {
 
       const app = await buildApp(prisma);
       const res = await request(app)
-        .post('/auth/login')
+        .post('/api/v1/auth/login')
         .send({ tenantCode: 'NOPE', phone: '0551234567', password: PASSWORD });
 
       expect(res.status).toBe(401);
@@ -113,7 +113,7 @@ describe('auth routes', () => {
     it('returns 400 for a malformed body (extra property rejected)', async () => {
       const app = await buildApp(makePrisma());
       const res = await request(app)
-        .post('/auth/login')
+        .post('/api/v1/auth/login')
         .send({ tenantCode: 'KSU', phone: '0551234567', password: PASSWORD, role: 'STUDENT' });
 
       expect(res.status).toBe(400);
@@ -122,7 +122,7 @@ describe('auth routes', () => {
 
     it('returns 400 for a missing body', async () => {
       const app = await buildApp(makePrisma());
-      const res = await request(app).post('/auth/login').send({});
+      const res = await request(app).post('/api/v1/auth/login').send({});
       expect(res.status).toBe(400);
     });
   });
@@ -130,7 +130,7 @@ describe('auth routes', () => {
   describe('GET /auth/me', () => {
     it('returns 401 without a token', async () => {
       const app = await buildApp(makePrisma());
-      const res = await request(app).get('/auth/me');
+      const res = await request(app).get('/api/v1/auth/me');
       expect(res.status).toBe(401);
     });
 
@@ -143,7 +143,7 @@ describe('auth routes', () => {
         '15m',
       );
 
-      const res = await request(app).get('/auth/me').set('Authorization', `Bearer ${token}`);
+      const res = await request(app).get('/api/v1/auth/me').set('Authorization', `Bearer ${token}`);
       expect(res.status).toBe(200);
       expect(res.body.data.id).toBe('u1');
       expect(res.body.data.role).toBe('STUDENT');
@@ -160,7 +160,7 @@ describe('auth routes', () => {
         '15m',
       );
 
-      const res = await request(app).get('/auth/me').set('Authorization', `Bearer ${token}`);
+      const res = await request(app).get('/api/v1/auth/me').set('Authorization', `Bearer ${token}`);
       expect(res.status).toBe(401);
     });
   });
@@ -179,7 +179,7 @@ describe('auth routes', () => {
       });
 
       const app = await buildApp(prisma);
-      const res = await request(app).post('/auth/refresh').send({ refreshToken });
+      const res = await request(app).post('/api/v1/auth/refresh').send({ refreshToken });
 
       expect(res.status).toBe(200);
       expect(res.body.data.accessToken).toBeTruthy();
@@ -204,7 +204,7 @@ describe('auth routes', () => {
       prisma.refreshSession.updateMany.mockResolvedValue({ count: 0 });
 
       const app = await buildApp(prisma);
-      const res = await request(app).post('/auth/refresh').send({ refreshToken });
+      const res = await request(app).post('/api/v1/auth/refresh').send({ refreshToken });
       expect(res.status).toBe(401);
       expect(res.body.error.code).toBe('REFRESH_TOKEN_REUSED');
       expect(prisma.refreshSession.updateMany).toHaveBeenCalled();
@@ -215,7 +215,7 @@ describe('auth routes', () => {
       prisma.refreshSession.findUnique.mockResolvedValue(null);
 
       const app = await buildApp(prisma);
-      const res = await request(app).post('/auth/refresh').send({ refreshToken });
+      const res = await request(app).post('/api/v1/auth/refresh').send({ refreshToken });
       expect(res.status).toBe(401);
       expect(res.body.error.code).toBe('INVALID_REFRESH_TOKEN');
     });
@@ -231,7 +231,7 @@ describe('auth routes', () => {
       });
 
       const app = await buildApp(prisma);
-      const res = await request(app).post('/auth/refresh').send({ refreshToken });
+      const res = await request(app).post('/api/v1/auth/refresh').send({ refreshToken });
       expect(res.status).toBe(401);
       expect(res.body.error.code).toBe('REFRESH_TOKEN_REUSED');
       expect(prisma.refreshSession.updateMany).toHaveBeenCalled();
@@ -251,7 +251,7 @@ describe('auth routes', () => {
 
       const app = await buildApp(prisma);
       const res = await request(app)
-        .post('/auth/logout')
+        .post('/api/v1/auth/logout')
         .send({ refreshToken: 'refresh-token-value-123456' });
       expect(res.status).toBe(200);
       expect(prisma.refreshSession.update).toHaveBeenCalledWith({
@@ -266,7 +266,7 @@ describe('auth routes', () => {
 
       const app = await buildApp(prisma);
       const res = await request(app)
-        .post('/auth/logout')
+        .post('/api/v1/auth/logout')
         .send({ refreshToken: 'refresh-token-value-123456' });
       expect(res.status).toBe(200);
     });
