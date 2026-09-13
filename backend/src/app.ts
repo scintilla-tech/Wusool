@@ -19,14 +19,22 @@ import { createTripsRouter } from './modules/trips/trips.routes';
 import { createDriverRouter } from './modules/trips/driver.routes';
 import { createDevicesRouter } from './modules/devices/devices.routes';
 import { createNotificationsRouter } from './modules/notifications/notifications.routes';
+import { LocationService } from './modules/tracking/location.service';
+import { TripService } from './modules/trips/trips.service';
 
 export interface AppDeps {
   config: EnvConfig;
   logger: Logger;
   prisma: PrismaClient;
+  locationService?: LocationService;
 }
 
-export function createApp({ config, logger, prisma }: AppDeps): Express {
+export function createApp({
+  config,
+  logger,
+  prisma,
+  locationService: injectedLocation,
+}: AppDeps): Express {
   const app = express();
 
   app.disable('x-powered-by');
@@ -60,11 +68,12 @@ export function createApp({ config, logger, prisma }: AppDeps): Express {
   app.use('/health', createHealthRouter({ prisma, logger }));
 
   const scopeDeps = { prisma, config };
+  const locationService = injectedLocation ?? new LocationService(prisma, new TripService(prisma));
 
   app.use('/api/v1/auth', createAuthRouter({ prisma, config }));
   app.use('/api/v1/structure', createStructureRouter(scopeDeps));
   app.use('/api/v1/employees', createEmployeesRouter(scopeDeps));
-  app.use('/api/v1/students', createStudentsSelfRouter(scopeDeps));
+  app.use('/api/v1/students', createStudentsSelfRouter({ ...scopeDeps, locationService }));
   app.use('/api/v1/students', createStudentsRouter(scopeDeps));
   app.use('/api/v1/assignments', createAssignmentsRouter(scopeDeps));
   app.use('/api/v1/attendance', createAttendanceRouter(scopeDeps));

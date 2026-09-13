@@ -16,6 +16,12 @@ export interface LocationResult {
   autoCompleted: boolean;
 }
 
+export interface LatestLocation {
+  latitude: number;
+  longitude: number;
+  at: number;
+}
+
 /**
  * Validates, throttles, and processes driver location updates during ACTIVE trips.
  * Handles in-memory arrival sampling for geofence auto-completion.
@@ -23,6 +29,7 @@ export interface LocationResult {
 export class LocationService {
   private readonly lastBroadcast = new Map<string, number>();
   private readonly arrivalSamples = new Map<string, { firstAt: number; count: number }>();
+  private readonly latestByTrip = new Map<string, LatestLocation>();
   private readonly minBroadcastIntervalMs: number;
   private readonly arrivalSampleGapMs: number;
 
@@ -33,6 +40,11 @@ export class LocationService {
   ) {
     this.minBroadcastIntervalMs = options?.minBroadcastIntervalMs ?? MIN_BROADCAST_INTERVAL_MS;
     this.arrivalSampleGapMs = options?.arrivalSampleGapMs ?? ARRIVAL_SAMPLE_GAP_MS;
+  }
+
+  /** Latest known location for an ACTIVE trip (transient, in-memory). */
+  getLatest(tripId: string): LatestLocation | null {
+    return this.latestByTrip.get(tripId) ?? null;
   }
 
   async processLocation(
@@ -55,7 +67,10 @@ export class LocationService {
     const now = Date.now();
     const last = this.lastBroadcast.get(driverUserId) ?? 0;
     const broadcast = now - last >= this.minBroadcastIntervalMs;
-    if (broadcast) this.lastBroadcast.set(driverUserId, now);
+    if (broadcast) {
+      this.lastBroadcast.set(driverUserId, now);
+      this.latestByTrip.set(trip.id, { latitude, longitude, at: now });
+    }
 
     let autoCompleted = false;
     const branch = trip.route?.branch ?? null;
@@ -72,6 +87,10 @@ export class LocationService {
         if (s.count >= ARRIVAL_SAMPLES_REQUIRED && now - s.firstAt >= this.arrivalSampleGapMs) {
           this.arrivalSamples.delete(trip.id);
           autoCompleted = await this.tripService.completeTripByGeofence(tenantId, trip.id);
+          if (autoCompleted) {
+            // Privacy: stop exposing location once the trip is complete.
+            this.latestByTrip.delete(trip.id);
+          }
         }
       } else {
         this.arrivalSamples.delete(trip.id);

@@ -14,12 +14,13 @@ async function main(): Promise<void> {
   const config = loadEnvConfig(process.env);
   const logger = createLogger(config);
   const prisma = getPrismaClient();
-  const app = createApp({ config, logger, prisma });
-
-  const httpServer: Server = createServer(app);
 
   const tripService = new TripService(prisma);
   const locationService = new LocationService(prisma, tripService);
+
+  const app = createApp({ config, logger, prisma, locationService });
+  const httpServer: Server = createServer(app);
+
   const io = createSocketServer(httpServer, {
     prisma,
     accessSecret: config.JWT_ACCESS_SECRET,
