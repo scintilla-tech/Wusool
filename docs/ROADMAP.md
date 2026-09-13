@@ -18,8 +18,8 @@ Living plan for WASL (multi-tenant university female transportation SaaS). Each 
 | 9 | Student Flutter Experience | ✅ VERIFIED |
 | 10 | Driver Flutter Experience | ✅ VERIFIED |
 | 11 | Supervisor + Field Supervisor Experience | ✅ VERIFIED |
-| 12 | University Administration Experience | 🚧 IN PROGRESS |
-| 13 | Platform Administration | ⬜ PLANNED |
+| 12 | University Administration Experience | ✅ VERIFIED |
+| 13 | Platform Administration | 🚧 IN PROGRESS |
 | 14 | Storage/Documents + Provider Integrations | ⬜ PLANNED |
 | 15 | Full Security/Integration Audit | 🚧 IN PROGRESS |
 | 16 | Performance + k6 Load Testing + Optimization | ⬜ PLANNED |

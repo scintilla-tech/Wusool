@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme.dart';
+import '../admin/admin_shell.dart';
 import '../auth/auth_state.dart';
 import '../driver/driver_screen.dart';
 import '../student/student_shell.dart';
@@ -22,6 +23,9 @@ class HomeScreen extends ConsumerWidget {
     }
     if (user?.role == 'SUPERVISOR' || user?.role == 'FIELD_SUPERVISOR') {
       return const SupervisorScreen();
+    }
+    if (user?.role == 'UNIVERSITY_ADMIN') {
+      return const AdminShell();
     }
 
     return Scaffold(
