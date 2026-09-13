@@ -5,8 +5,8 @@ const validEnv: Record<string, string | undefined> = {
   NODE_ENV: 'test',
   PORT: '3000',
   DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/wasl?schema=public',
-  JWT_ACCESS_SECRET: 'test-access-secret-1234567890',
-  JWT_REFRESH_SECRET: 'test-refresh-secret-1234567890',
+  JWT_ACCESS_SECRET: 'test-access-secret-0123456789abcdefghij',
+  JWT_REFRESH_SECRET: 'test-refresh-secret-0123456789abcdefghij',
   CORS_ALLOWED_ORIGINS: 'http://localhost:3000',
   LOG_LEVEL: 'silent',
 };
@@ -37,6 +37,9 @@ describe('environment validation', () => {
     expect(() => loadEnvConfig({ ...validEnv, JWT_ACCESS_SECRET: 'short' })).toThrow(
       /JWT_ACCESS_SECRET/,
     );
+    expect(() => loadEnvConfig({ ...validEnv, JWT_ACCESS_SECRET: 'a'.repeat(31) })).toThrow(
+      /at least 32/,
+    );
   });
 
   it('rejects placeholder JWT secrets in production', () => {
@@ -44,8 +47,8 @@ describe('environment validation', () => {
       loadEnvConfig({
         ...validEnv,
         NODE_ENV: 'production',
-        JWT_ACCESS_SECRET: 'change-me-access-secret',
-        JWT_REFRESH_SECRET: 'change-me-refresh-secret',
+        JWT_ACCESS_SECRET: 'change-me-access-secret-please-replace',
+        JWT_REFRESH_SECRET: 'change-me-refresh-secret-please-replace',
       }),
     ).toThrow(/placeholder/i);
   });
@@ -55,8 +58,8 @@ describe('environment validation', () => {
       loadEnvConfig({
         ...validEnv,
         NODE_ENV: 'production',
-        JWT_ACCESS_SECRET: 'same-secret-value-1234567890',
-        JWT_REFRESH_SECRET: 'same-secret-value-1234567890',
+        JWT_ACCESS_SECRET: 'identical-secret-0123456789abcdefghij',
+        JWT_REFRESH_SECRET: 'identical-secret-0123456789abcdefghij',
       }),
     ).toThrow(/differ/i);
   });

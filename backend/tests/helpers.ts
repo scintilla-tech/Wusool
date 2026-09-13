@@ -8,9 +8,12 @@ export const testEnv: EnvConfig = {
   NODE_ENV: 'test',
   PORT: 3000,
   DATABASE_URL: 'postgresql://test:test@localhost:5432/wasl_test?schema=public',
-  JWT_ACCESS_SECRET: 'test-access-secret-1234567890',
-  JWT_REFRESH_SECRET: 'test-refresh-secret-1234567890',
+  JWT_ACCESS_SECRET: 'test-access-secret-0123456789abcdefghij',
+  JWT_REFRESH_SECRET: 'test-refresh-secret-0123456789abcdefghij',
+  JWT_ACCESS_TTL: '15m',
+  JWT_REFRESH_TTL: '30d',
   CORS_ALLOWED_ORIGINS: 'http://localhost:3000',
+  TRUST_PROXY: 0,
   LOG_LEVEL: 'silent',
 };
 
