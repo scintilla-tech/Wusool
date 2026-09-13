@@ -15,6 +15,8 @@ import { createStudentsRouter } from './modules/students/students.routes';
 import { createStudentsSelfRouter } from './modules/students/students.self.routes';
 import { createAssignmentsRouter } from './modules/assignments/assignments.routes';
 import { createAttendanceRouter } from './modules/attendance/attendance.routes';
+import { createTripsRouter } from './modules/trips/trips.routes';
+import { createDriverRouter } from './modules/trips/driver.routes';
 
 export interface AppDeps {
   config: EnvConfig;
@@ -64,6 +66,8 @@ export function createApp({ config, logger, prisma }: AppDeps): Express {
   app.use('/api/v1/students', createStudentsRouter(scopeDeps));
   app.use('/api/v1/assignments', createAssignmentsRouter(scopeDeps));
   app.use('/api/v1/attendance', createAttendanceRouter(scopeDeps));
+  app.use('/api/v1/trips', createTripsRouter(scopeDeps));
+  app.use('/api/v1/driver', createDriverRouter(scopeDeps));
 
   app.use(notFoundHandler);
   app.use(errorHandler(logger, config.NODE_ENV === 'production'));
