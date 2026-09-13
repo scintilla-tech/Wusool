@@ -5,6 +5,7 @@ import '../../core/theme.dart';
 import '../auth/auth_state.dart';
 import '../driver/driver_screen.dart';
 import '../student/student_shell.dart';
+import '../supervisor/supervisor_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -18,6 +19,9 @@ class HomeScreen extends ConsumerWidget {
     }
     if (user?.role == 'DRIVER') {
       return const DriverScreen();
+    }
+    if (user?.role == 'SUPERVISOR' || user?.role == 'FIELD_SUPERVISOR') {
+      return const SupervisorScreen();
     }
 
     return Scaffold(

@@ -19,6 +19,7 @@ import { createTripsRouter } from './modules/trips/trips.routes';
 import { createDriverRouter } from './modules/trips/driver.routes';
 import { createDevicesRouter } from './modules/devices/devices.routes';
 import { createNotificationsRouter } from './modules/notifications/notifications.routes';
+import { createSupervisorRouter } from './modules/supervisor/supervisor.routes';
 import { LocationService } from './modules/tracking/location.service';
 import { TripService } from './modules/trips/trips.service';
 
@@ -79,6 +80,7 @@ export function createApp({
   app.use('/api/v1/attendance', createAttendanceRouter(scopeDeps));
   app.use('/api/v1/trips', createTripsRouter(scopeDeps));
   app.use('/api/v1/driver', createDriverRouter(scopeDeps));
+  app.use('/api/v1/supervisor', createSupervisorRouter(scopeDeps));
   app.use('/api/v1/devices', createDevicesRouter(scopeDeps));
   app.use('/api/v1/notifications', createNotificationsRouter(scopeDeps));
 
