@@ -1,8 +1,16 @@
 import type { Server as HttpServer } from 'node:http';
 import type { PrismaClient } from '@prisma/client';
 import { Server } from 'socket.io';
+import { z } from 'zod';
 import { verifyAccessToken } from '../utils/token';
 import { LocationService } from '../modules/tracking/location.service';
+
+const locationSchema = z
+  .object({
+    latitude: z.number().min(-90).max(90),
+    longitude: z.number().min(-180).max(180),
+  })
+  .strict();
 
 export interface SocketDeps {
   prisma: PrismaClient;
@@ -35,17 +43,18 @@ export function createSocketServer(httpServer: HttpServer, deps: SocketDeps): Se
   io.on('connection', (socket) => {
     const userId = socket.data.userId as string;
 
-    socket.on('trip:location', async (payload: { latitude: number; longitude: number }) => {
+    socket.on('trip:location', async (payload: unknown) => {
       try {
+        const parsed = locationSchema.parse(payload);
         const user = await deps.prisma.user.findUnique({ where: { id: userId } });
-        if (!user || user.role !== 'DRIVER' || !user.tenantId) return;
+        if (!user || user.role !== 'DRIVER' || !user.isActive || !user.tenantId) return;
         const tenantId = user.tenantId;
 
         const result = await deps.locationService.processLocation(
           tenantId,
           userId,
-          payload.latitude,
-          payload.longitude,
+          parsed.latitude,
+          parsed.longitude,
         );
 
         if (result.broadcast) {

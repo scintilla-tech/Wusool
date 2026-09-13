@@ -21,6 +21,7 @@
     "prisma:validate": "prisma validate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
+    "prisma:seed": "tsx prisma/seed.ts",
     "db:check-constraints": "tsx scripts/check-raw-constraints.ts"
   },
   "dependencies": {

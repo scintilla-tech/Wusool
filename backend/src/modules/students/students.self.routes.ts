@@ -3,6 +3,7 @@ import { asyncHandler } from '../../utils/asyncHandler';
 import { validate } from '../../middlewares/validate';
 import { createAuthenticate } from '../../middlewares/authenticate';
 import { authorize } from '../../middlewares/authorize';
+import { createRateLimiter } from '../../middlewares/rateLimit';
 import { MockOtpProvider } from '../../providers/otp';
 import { OtpService } from '../otp/otp.service';
 import { StudentSelfService } from './students.self.service';
@@ -17,9 +18,12 @@ export function createStudentsSelfRouter(deps: ScopeDeps): Router {
     prisma: deps.prisma,
     accessSecret: deps.config.JWT_ACCESS_SECRET,
   });
+  const registerLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, limit: 5 });
+  const verifyLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, limit: 10 });
 
   router.post(
     '/register',
+    registerLimiter,
     validate({ body: registerSchema }),
     asyncHandler(async (req, res) => {
       res.status(201).json({ success: true, data: await service.register(req.body) });
@@ -28,6 +32,7 @@ export function createStudentsSelfRouter(deps: ScopeDeps): Router {
 
   router.post(
     '/verify',
+    verifyLimiter,
     validate({ body: verifySchema }),
     asyncHandler(async (req, res) => {
       await service.verify(req.body.userId, req.body.code);

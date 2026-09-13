@@ -7,6 +7,8 @@ interface StoredOtp {
 }
 
 const OTP_TTL_MS = 5 * 60 * 1000;
+const MAX_VERIFY_ATTEMPTS = 5;
+const ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
 
 /**
  * Generates and verifies one-time codes. The in-memory store is sufficient for
@@ -14,6 +16,7 @@ const OTP_TTL_MS = 5 * 60 * 1000;
  */
 export class OtpService {
   private readonly store = new Map<string, StoredOtp>();
+  private readonly attempts = new Map<string, { count: number; windowStart: number }>();
 
   constructor(
     private readonly provider: OtpProvider,
@@ -23,6 +26,7 @@ export class OtpService {
   async generate(identifier: string): Promise<string> {
     const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
     this.store.set(identifier, { code, expiresAt: Date.now() + this.ttlMs });
+    this.attempts.delete(identifier);
     await this.provider.send(identifier, code);
     return code;
   }
@@ -33,10 +37,26 @@ export class OtpService {
       this.store.delete(identifier);
       return false;
     }
+
+    const now = Date.now();
+    const attempt = this.attempts.get(identifier) ?? { count: 0, windowStart: now };
+    if (now - attempt.windowStart > ATTEMPT_WINDOW_MS) {
+      attempt.count = 0;
+      attempt.windowStart = now;
+    }
+    attempt.count += 1;
+    this.attempts.set(identifier, attempt);
+    if (attempt.count > MAX_VERIFY_ATTEMPTS) {
+      this.store.delete(identifier);
+      this.attempts.delete(identifier);
+      return false;
+    }
+
     if (stored.code !== code) {
       return false;
     }
     this.store.delete(identifier);
+    this.attempts.delete(identifier);
     return true;
   }
 }

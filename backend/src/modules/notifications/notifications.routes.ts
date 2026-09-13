@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { createAuthenticate } from '../../middlewares/authenticate';
+import { validate } from '../../middlewares/validate';
 import { MockPushProvider } from '../../providers/notifications';
+import { paginationSchema } from '../../validation/common';
 import { NotificationService } from './notification.service';
 import type { ScopeDeps } from '../../middlewares/scope';
 
@@ -16,12 +18,12 @@ export function createNotificationsRouter(deps: ScopeDeps): Router {
   router.get(
     '/',
     authenticate,
+    validate({ query: paginationSchema }),
     asyncHandler(async (req, res) => {
-      const page = Number((req.query as { page?: number }).page ?? 1);
-      const limit = Number((req.query as { limit?: number }).limit ?? 20);
+      const q = req.query as unknown as { page: number; limit: number };
       res.json({
         success: true,
-        data: await service.listMine(req.auth?.userId as string, page, limit),
+        data: await service.listMine(req.auth?.userId as string, q.page, q.limit),
       });
     }),
   );

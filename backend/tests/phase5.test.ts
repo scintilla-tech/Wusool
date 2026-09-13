@@ -12,8 +12,14 @@ describe('trip completion + transport confirmation', () => {
     const tx = { dailyTrip: { update: vi.fn() }, tripStudent: { updateMany } };
     const service = new TripService(
       prisma({
+        driverProfile: { findFirst: vi.fn().mockResolvedValue({ id: 'dp1' }) },
         dailyTrip: {
-          findFirst: vi.fn().mockResolvedValue({ id: 't1', tenantId: 't1', status: 'IN_PROGRESS' }),
+          findFirst: vi.fn().mockResolvedValue({
+            id: 't1',
+            tenantId: 't1',
+            status: 'IN_PROGRESS',
+            driverProfileId: 'dp1',
+          }),
           findUnique: vi.fn().mockResolvedValue({ id: 't1', status: 'COMPLETED' }),
         },
         auditLog: { create: vi.fn() },
@@ -31,8 +37,14 @@ describe('trip completion + transport confirmation', () => {
   it('rejects completing a trip that is not in progress', async () => {
     const service = new TripService(
       prisma({
+        driverProfile: { findFirst: vi.fn().mockResolvedValue({ id: 'dp1' }) },
         dailyTrip: {
-          findFirst: vi.fn().mockResolvedValue({ id: 't1', tenantId: 't1', status: 'SCHEDULED' }),
+          findFirst: vi.fn().mockResolvedValue({
+            id: 't1',
+            tenantId: 't1',
+            status: 'SCHEDULED',
+            driverProfileId: 'dp1',
+          }),
         },
       }),
     );

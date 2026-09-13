@@ -93,7 +93,18 @@ export class TripService {
           },
         },
         tripStudents: {
-          include: { studentProfile: { include: { user: true } } },
+          include: {
+            studentProfile: {
+              select: {
+                id: true,
+                studentId: true,
+                userId: true,
+                homeLatitude: true,
+                homeLongitude: true,
+                user: { select: { id: true, firstName: true, lastName: true, phone: true } },
+              },
+            },
+          },
           orderBy: { createdAt: 'asc' },
         },
       },
@@ -137,8 +148,7 @@ export class TripService {
   }
 
   async completeTrip(tenantId: string, actorUserId: string, tripId: string) {
-    const trip = await this.prisma.dailyTrip.findFirst({ where: { id: tripId, tenantId } });
-    if (!trip) throw new AppError(404, 'NOT_FOUND', 'Trip not found');
+    const trip = await this.assertTripForDriver(tenantId, actorUserId, tripId);
     if (trip.status !== 'IN_PROGRESS') {
       throw new AppError(409, 'INVALID_STATE', 'Trip is not in progress');
     }
