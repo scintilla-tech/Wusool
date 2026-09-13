@@ -5,6 +5,7 @@ import '../../core/theme.dart';
 import '../admin/admin_shell.dart';
 import '../auth/auth_state.dart';
 import '../driver/driver_screen.dart';
+import '../platform/platform_screen.dart';
 import '../student/student_shell.dart';
 import '../supervisor/supervisor_screen.dart';
 
@@ -26,6 +27,9 @@ class HomeScreen extends ConsumerWidget {
     }
     if (user?.role == 'UNIVERSITY_ADMIN') {
       return const AdminShell();
+    }
+    if (user?.role == 'PLATFORM_SUPER_ADMIN') {
+      return const PlatformScreen();
     }
 
     return Scaffold(
