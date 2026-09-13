@@ -3,7 +3,7 @@ import type { PrismaClient } from '@prisma/client';
 import type { EnvConfig } from '../../config/env';
 import { validate } from '../../middlewares/validate';
 import { createAuthenticate } from '../../middlewares/authenticate';
-import { createRateLimiter } from '../../middlewares/rateLimit';
+import { createRateLimiter, loginKeyGenerator } from '../../middlewares/rateLimit';
 import { AuthService } from './auth.service';
 import { createAuthController } from './auth.controller';
 import { loginSchema, refreshSchema } from './auth.schemas';
@@ -22,7 +22,11 @@ export function createAuthRouter({ prisma, config }: AuthRouterDeps): Router {
   const controller = createAuthController(service);
   const authenticate = createAuthenticate({ prisma, accessSecret: config.JWT_ACCESS_SECRET });
 
-  const loginLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, limit: 10 });
+  const loginLimiter = createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    limit: config.LOGIN_RATE_LIMIT,
+    keyGenerator: loginKeyGenerator,
+  });
   const refreshLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, limit: 60 });
   const logoutLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, limit: 60 });
 

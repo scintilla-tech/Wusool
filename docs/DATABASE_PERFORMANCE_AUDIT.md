@@ -155,7 +155,39 @@ figures, not production claims.
 DB query counts per call: student list = **2** (limit 20 and 100), route list = **2**,
 driver trip = **2**. All p95 well under the 500 ms read target locally.
 
-## 12. Remaining Risks
+## 12. k6 Load Testing (Phase 16)
+
+k6 v2.2.0 (portable, project-local). Scripts in `backend/load/`. Against the dev backend +
+demo seed, with the login rate limit raised for the test only (`LOGIN_RATE_LIMIT=100000`).
+
+### Smoke (`load/smoke.js`)
+
+- checks: **103 / 103 (100%)**, `http_req_failed` 0%, p95 **26.31 ms**.
+
+### Morning burst (`load/burst.js`, ramping to 400 VUs)
+
+| Metric | Result |
+| --- | --- |
+| max VUs | **400** |
+| iterations | 20,005 |
+| checks | **36,029 / 36,029 (100%)** |
+| `http_req_failed` | **0.00%** |
+| `http_req_duration` avg | 10.13 ms |
+| p(90) | 14.48 ms |
+| **p(95)** | **26.36 ms** |
+| max | 355.77 ms |
+
+Reads p95 (26 ms) and writes p95 are far below the 500 ms / 800 ms targets at 400
+concurrent users, with zero failures. This satisfies the "~400 active users" burst target.
+
+### Rate-limit fix discovered during load testing
+
+The login limiter originally keyed by IP (10/15 min), which would block the morning burst
+behind a single campus NAT. It now keys by the login identifier (`tenantCode:phone`) with an
+IP fallback, and the limit is configurable (`LOGIN_RATE_LIMIT`, default 10). This protects a
+single account against brute force while allowing many distinct users behind one egress IP.
+
+## 13. Remaining Risks
 
 - **`ORDER BY createdAt` on list endpoints** has no covering index. At ~2,250 rows the sort
   is ~1 ms; monitor if a tenant exceeds ~10k students, then consider `(tenantId, role, createdAt)`.
@@ -169,7 +201,7 @@ driver trip = **2**. All p95 well under the 500 ms read target locally.
 - **Cross-tenant composite FKs** remain deferred (documented Phase 2+ precondition).
 - **No load test yet** at ~1,000 concurrent connections (Phase 16, k6).
 
-## 13. Verification Commands Run
+## 14. Verification Commands Run
 
 - `npx prisma validate` → valid
 - `npx prisma migrate deploy` → 7 migrations applied
