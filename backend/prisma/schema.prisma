@@ -429,6 +429,7 @@ model DeviceToken {
   user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   token     String
   platform  DevicePlatform
+  deviceId  String?
   isActive  Boolean        @default(true)
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
