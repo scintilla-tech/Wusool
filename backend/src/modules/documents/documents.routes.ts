@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { createAuthenticate } from '../../middlewares/authenticate';
 import { requireTenant } from '../../middlewares/requireTenant';
+import { createRateLimiter } from '../../middlewares/rateLimit';
 import { AppError } from '../../utils/appError';
 import { DocumentsService } from './documents.service';
 import type { ScopeDeps } from '../../middlewares/scope';
@@ -24,11 +25,13 @@ export function createDocumentsRouter(deps: DocumentsDeps): Router {
     prisma: deps.prisma,
     accessSecret: deps.config.JWT_ACCESS_SECRET,
   });
+  const uploadLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, limit: 30 });
 
   router.post(
     '/',
     authenticate,
     requireTenant,
+    uploadLimiter,
     upload.single('file'),
     asyncHandler(async (req, res) => {
       if (!req.file) throw new AppError(400, 'NO_FILE', 'File is required');

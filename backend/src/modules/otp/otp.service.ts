@@ -1,4 +1,4 @@
-import { randomInt } from 'node:crypto';
+import { randomInt, timingSafeEqual } from 'node:crypto';
 import type { OtpProvider } from '../../providers/otp';
 
 interface StoredOtp {
@@ -52,7 +52,10 @@ export class OtpService {
       return false;
     }
 
-    if (stored.code !== code) {
+    if (stored.code.length !== code.length) {
+      return false;
+    }
+    if (!timingSafeEqual(Buffer.from(stored.code), Buffer.from(code))) {
       return false;
     }
     this.store.delete(identifier);

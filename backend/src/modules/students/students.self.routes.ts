@@ -3,6 +3,7 @@ import { asyncHandler } from '../../utils/asyncHandler';
 import { validate } from '../../middlewares/validate';
 import { createAuthenticate } from '../../middlewares/authenticate';
 import { authorize } from '../../middlewares/authorize';
+import { requireTenant } from '../../middlewares/requireTenant';
 import { createRateLimiter } from '../../middlewares/rateLimit';
 import { MockOtpProvider } from '../../providers/otp';
 import { OtpService } from '../otp/otp.service';
@@ -51,6 +52,7 @@ export function createStudentsSelfRouter(deps: StudentsSelfDeps): Router {
     '/me',
     authenticate,
     authorize('STUDENT'),
+    requireTenant,
     asyncHandler(async (req, res) => {
       res.json({ success: true, data: await service.getMe(req.auth?.userId as string) });
     }),
@@ -60,6 +62,7 @@ export function createStudentsSelfRouter(deps: StudentsSelfDeps): Router {
     '/me',
     authenticate,
     authorize('STUDENT'),
+    requireTenant,
     validate({ body: profileUpdateSchema }),
     asyncHandler(async (req, res) => {
       res.json({
@@ -73,6 +76,7 @@ export function createStudentsSelfRouter(deps: StudentsSelfDeps): Router {
     '/me/trip',
     authenticate,
     authorize('STUDENT'),
+    requireTenant,
     asyncHandler(async (req, res) => {
       const tenantId = req.auth?.tenantId as string;
       res.json({
