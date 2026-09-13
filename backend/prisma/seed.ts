@@ -2,7 +2,11 @@
  * DEVELOPMENT-ONLY demo seed. Creates realistic fictional data for the WASL MVP
  * demo. No real personal information. Run with: DATABASE_URL=... npm run prisma:seed
  *
- * Demo credentials (all passwords fictional):
+ * Persistent per-role demo identities (all password `WaslDemo@2026`) are documented
+ * in docs/DEMO_ACCOUNTS.md. They are fictional test accounts and must never exist
+ * in production.
+ *
+ * Legacy demo credentials (all passwords fictional):
  *   Admin:       phone +966501111111  password AdminPass#1
  *   Driver 1:    phone +966550000001  password DriverPass#1
  *   Driver 2:    phone +966550000002  password DriverPass#2
@@ -13,6 +17,9 @@ import { PrismaClient, type Role } from '@prisma/client';
 import { hashPassword } from '../src/utils/password';
 
 const prisma = new PrismaClient();
+
+/** Single development-only password for the persistent demo identities. */
+const DEMO_PASSWORD = 'WaslDemo@2026';
 
 async function upsertTenant() {
   return prisma.tenant.upsert({
@@ -48,6 +55,30 @@ async function upsertUser(
       isActive: true,
     },
   });
+}
+
+/** Idempotent upsert for a persistent per-role demo identity (deterministic id). */
+async function upsertDemoUser(
+  id: string,
+  data: {
+    role: Role;
+    phone: string;
+    email?: string;
+    tenantId: string | null;
+    passwordHash: string;
+  },
+) {
+  const base = {
+    role: data.role,
+    firstName: 'Nejood',
+    lastName: 'Demo',
+    phone: data.phone,
+    email: data.email ?? null,
+    tenantId: data.tenantId,
+    passwordHash: data.passwordHash,
+    isActive: true,
+  };
+  return prisma.user.upsert({ where: { id }, update: base, create: { id, ...base } });
 }
 
 async function main(): Promise<void> {
@@ -232,8 +263,219 @@ async function main(): Promise<void> {
     });
   }
 
+  // ---------------------------------------------------------------------------
+  // Persistent per-role demo identities (DEVELOPMENT / DEMO ONLY).
+  // One account per role so RBAC and object-level authorization can be tested.
+  // Idempotent: deterministic ids + upserts (re-running never duplicates).
+  // ---------------------------------------------------------------------------
+  const demoPasswordHash = await hashPassword(DEMO_PASSWORD);
+
+  // 1. Student
+  const demoStudentUser = await upsertDemoUser('demo-user-student-nejood', {
+    role: 'STUDENT',
+    phone: '+966500000101',
+    email: 'nejood.student@example.test',
+    tenantId: t,
+    passwordHash: demoPasswordHash,
+  });
+  const demoStudentProfile = await prisma.studentProfile.upsert({
+    where: { userId: demoStudentUser.id },
+    update: { tenantId: t, studentId: '440000001', homeLatitude: 24.756, homeLongitude: 46.612 },
+    create: {
+      userId: demoStudentUser.id,
+      tenantId: t,
+      studentId: '440000001',
+      homeLatitude: 24.756,
+      homeLongitude: 46.612,
+    },
+  });
+  await prisma.studentAssignment.updateMany({
+    where: { tenantId: t, studentProfileId: demoStudentProfile.id, isActive: true },
+    data: { isActive: false },
+  });
+  await prisma.studentAssignment.upsert({
+    where: { id: 'demo-sa-nejood' },
+    update: { routeId: route1.id, branchId: branchMain.id, isActive: true },
+    create: {
+      id: 'demo-sa-nejood',
+      tenantId: t,
+      studentProfileId: demoStudentProfile.id,
+      routeId: route1.id,
+      branchId: branchMain.id,
+      isActive: true,
+    },
+  });
+  await prisma.attendanceIntent.upsert({
+    where: {
+      studentProfileId_tripDate: { studentProfileId: demoStudentProfile.id, tripDate: today },
+    },
+    update: { intent: 'ATTENDING' },
+    create: {
+      tenantId: t,
+      studentProfileId: demoStudentProfile.id,
+      tripDate: today,
+      intent: 'ATTENDING',
+    },
+  });
+
+  // 2. Driver (active driver of demo bus KSU-1003)
+  const demoDriverUser = await upsertDemoUser('demo-user-driver-nejood', {
+    role: 'DRIVER',
+    phone: '+966500000102',
+    tenantId: t,
+    passwordHash: demoPasswordHash,
+  });
+  const demoDriverProfile = await prisma.driverProfile.upsert({
+    where: { userId: demoDriverUser.id },
+    update: { tenantId: t, employeeId: 'DRV-NEJOOD-01', nationality: 'Saudi' },
+    create: {
+      userId: demoDriverUser.id,
+      tenantId: t,
+      employeeId: 'DRV-NEJOOD-01',
+      nationality: 'Saudi',
+    },
+  });
+  await prisma.driverAssignment.updateMany({
+    where: { tenantId: t, busId: busIds['KSU-1003'], isActive: true },
+    data: { isActive: false },
+  });
+  await prisma.driverAssignment.upsert({
+    where: { id: 'demo-da-nejood' },
+    update: { driverProfileId: demoDriverProfile.id, busId: busIds['KSU-1003'], isActive: true },
+    create: {
+      id: 'demo-da-nejood',
+      tenantId: t,
+      driverProfileId: demoDriverProfile.id,
+      busId: busIds['KSU-1003'],
+      isActive: true,
+    },
+  });
+
+  // 3. Supervisor (same demo bus KSU-1003)
+  const demoSupervisorUser = await upsertDemoUser('demo-user-supervisor-nejood', {
+    role: 'SUPERVISOR',
+    phone: '+966500000103',
+    tenantId: t,
+    passwordHash: demoPasswordHash,
+  });
+  const demoSupervisorProfile = await prisma.supervisorProfile.upsert({
+    where: { userId: demoSupervisorUser.id },
+    update: { tenantId: t, employeeId: 'SUP-NEJOOD-01', nationality: 'Saudi' },
+    create: {
+      userId: demoSupervisorUser.id,
+      tenantId: t,
+      employeeId: 'SUP-NEJOOD-01',
+      nationality: 'Saudi',
+    },
+  });
+  await prisma.supervisorBusAssignment.updateMany({
+    where: { tenantId: t, busId: busIds['KSU-1003'], isActive: true },
+    data: { isActive: false },
+  });
+  await prisma.supervisorBusAssignment.upsert({
+    where: { id: 'demo-sba-nejood' },
+    update: {
+      supervisorProfileId: demoSupervisorProfile.id,
+      busId: busIds['KSU-1003'],
+      isActive: true,
+    },
+    create: {
+      id: 'demo-sba-nejood',
+      tenantId: t,
+      supervisorProfileId: demoSupervisorProfile.id,
+      busId: busIds['KSU-1003'],
+      isActive: true,
+    },
+  });
+
+  // 4. Field supervisor (tenant-wide operational access; no per-bus assignment model)
+  const demoFsupUser = await upsertDemoUser('demo-user-fsup-nejood', {
+    role: 'FIELD_SUPERVISOR',
+    phone: '+966500000104',
+    tenantId: t,
+    passwordHash: demoPasswordHash,
+  });
+  await prisma.fieldSupervisorProfile.upsert({
+    where: { userId: demoFsupUser.id },
+    update: { tenantId: t, employeeId: 'FSUP-NEJOOD-01', nationality: 'Saudi' },
+    create: {
+      userId: demoFsupUser.id,
+      tenantId: t,
+      employeeId: 'FSUP-NEJOOD-01',
+      nationality: 'Saudi',
+    },
+  });
+
+  // 5. University admin (same demo tenant)
+  await upsertDemoUser('demo-user-admin-nejood', {
+    role: 'UNIVERSITY_ADMIN',
+    phone: '+966500000105',
+    tenantId: t,
+    passwordHash: demoPasswordHash,
+  });
+
+  // 6. Platform super admin (platform-level: tenantId MUST be null)
+  await upsertDemoUser('demo-user-platform-nejood', {
+    role: 'PLATFORM_SUPER_ADMIN',
+    phone: '+966500000106',
+    tenantId: null,
+    passwordHash: demoPasswordHash,
+  });
+
+  // Today's trip for the demo driver's bus/route so driver + student flows are testable.
+  const demoTrip = await prisma.dailyTrip.upsert({
+    where: { id: 'demo-trip-nejood' },
+    update: { tripDate: today, status: 'SCHEDULED' },
+    create: {
+      id: 'demo-trip-nejood',
+      tenantId: t,
+      routeId: route1.id,
+      busId: busIds['KSU-1003'],
+      driverProfileId: demoDriverProfile.id,
+      tripDate: today,
+      status: 'SCHEDULED',
+    },
+  });
+  const routeAssignments = await prisma.studentAssignment.findMany({
+    where: { tenantId: t, routeId: route1.id, isActive: true },
+    select: { studentProfileId: true },
+  });
+  const attending = await prisma.attendanceIntent.findMany({
+    where: {
+      tenantId: t,
+      tripDate: today,
+      intent: 'ATTENDING',
+      studentProfileId: { in: routeAssignments.map((a) => a.studentProfileId) },
+    },
+    select: { studentProfileId: true },
+  });
+  for (const intent of attending) {
+    await prisma.tripStudent.upsert({
+      where: {
+        dailyTripId_studentProfileId: {
+          dailyTripId: demoTrip.id,
+          studentProfileId: intent.studentProfileId,
+        },
+      },
+      update: {},
+      create: {
+        tenantId: t,
+        dailyTripId: demoTrip.id,
+        studentProfileId: intent.studentProfileId,
+        status: 'WAITING',
+      },
+    });
+  }
+
   console.log('Demo seed complete.');
-  console.log('Credentials:');
+  console.log('Persistent per-role demo identities (password WaslDemo@2026, tenant KSU):');
+  console.log('  STUDENT            +966500000101  (university id 440000001)');
+  console.log('  DRIVER             +966500000102  (employee DRV-NEJOOD-01)');
+  console.log('  SUPERVISOR         +966500000103  (employee SUP-NEJOOD-01)');
+  console.log('  FIELD_SUPERVISOR   +966500000104  (employee FSUP-NEJOOD-01)');
+  console.log('  UNIVERSITY_ADMIN   +966500000105  (employee ADMIN-NEJOOD-01)');
+  console.log('  PLATFORM_SUPER_ADMIN +966500000106 (tenantId = null)');
+  console.log('Legacy demo credentials:');
   console.log('  Admin      +966501111111 / AdminPass#1');
   console.log('  Driver 1   +966550000001 / DriverPass#1');
   console.log('  Driver 2   +966550000002 / DriverPass#2');

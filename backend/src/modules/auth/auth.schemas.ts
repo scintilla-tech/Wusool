@@ -3,7 +3,9 @@ import { saudiPhoneSchema } from '../../validation/common';
 
 export const loginSchema = z
   .object({
-    tenantCode: z.string().trim().min(1, 'Tenant code is required').max(64),
+    // Required for university-scoped users; omitted for platform-level accounts
+    // (PLATFORM_SUPER_ADMIN, tenantId = null).
+    tenantCode: z.string().trim().min(1).max(64).optional(),
     phone: saudiPhoneSchema,
     password: z.string().min(1, 'Password is required').max(200),
   })

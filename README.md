@@ -53,7 +53,21 @@ The Flutter wrapper resolves the existing SDK/JDK/Android SDK/pub cache; see `mo
 
 ## Demo credentials (development only)
 
-Seed with `cd backend; npm run prisma:seed`, then log in (tenant code `KSU`):
+Seed with `cd backend; npm run prisma:seed`, then log in (tenant code `KSU`).
+
+**Persistent per-role demo accounts (password `WaslDemo@2026`)** — one account per role so
+RBAC/tenant isolation can be tested. Full details in [`docs/DEMO_ACCOUNTS.md`](docs/DEMO_ACCOUNTS.md):
+
+| Role | Phone | Tenant |
+| --- | --- | --- |
+| STUDENT | +966500000101 | KSU |
+| DRIVER | +966500000102 | KSU |
+| SUPERVISOR | +966500000103 | KSU |
+| FIELD_SUPERVISOR | +966500000104 | KSU |
+| UNIVERSITY_ADMIN | +966500000105 | KSU |
+| PLATFORM_SUPER_ADMIN | +966500000106 | (blank tenant code) |
+
+Legacy demo accounts (also seeded):
 
 | Role | Phone | Password |
 | --- | --- | --- |
@@ -62,6 +76,8 @@ Seed with `cd backend; npm run prisma:seed`, then log in (tenant code `KSU`):
 | Driver 2 | +966550000002 | DriverPass#2 |
 | Supervisor | +966550000003 | SuperPass#1 |
 | Student | +966551000001 | Student#123 |
+
+> DEVELOPMENT / DEMO ONLY — never use these in production.
 
 ## Status
 

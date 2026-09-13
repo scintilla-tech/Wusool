@@ -57,19 +57,23 @@ export class AuthService {
   ) {}
 
   async login(
-    tenantCode: string,
+    tenantCode: string | undefined,
     phone: string,
     password: string,
   ): Promise<TokenPair & { user: AuthUserDto }> {
-    const tenant = await this.prisma.tenant.findUnique({ where: { code: tenantCode } });
-    if (!tenant || !tenant.isActive) {
-      await verifyPassword(DUMMY_PASSWORD_HASH, password);
-      throw invalidCredentials();
+    let user = null;
+    if (tenantCode) {
+      const tenant = await this.prisma.tenant.findUnique({ where: { code: tenantCode } });
+      if (tenant && tenant.isActive) {
+        user = await this.prisma.user.findUnique({
+          where: { tenantId_phone: { tenantId: tenant.id, phone } },
+        });
+      }
+    } else {
+      // Platform-level accounts (PLATFORM_SUPER_ADMIN) have tenantId = null.
+      user = await this.prisma.user.findFirst({ where: { phone, tenantId: null } });
     }
 
-    const user = await this.prisma.user.findUnique({
-      where: { tenantId_phone: { tenantId: tenant.id, phone } },
-    });
     if (!user || !user.isActive || !user.passwordHash) {
       await verifyPassword(DUMMY_PASSWORD_HASH, password);
       throw invalidCredentials();

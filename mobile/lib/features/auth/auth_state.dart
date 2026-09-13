@@ -99,10 +99,12 @@ class AuthNotifier extends Notifier<AuthState> {
     state = state.copyWith(busy: true, errorMessage: null);
     try {
       final api = ref.read(apiClientProvider);
-      final res = await api.dio.post<Map<String, dynamic>>(
-        '/auth/login',
-        data: {'tenantCode': tenantCode, 'phone': phone, 'password': password},
-      );
+      final payload = <String, dynamic>{'phone': phone, 'password': password};
+      // tenantCode is omitted for platform-level accounts (PLATFORM_SUPER_ADMIN).
+      if (tenantCode.trim().isNotEmpty) {
+        payload['tenantCode'] = tenantCode.trim();
+      }
+      final res = await api.dio.post<Map<String, dynamic>>('/auth/login', data: payload);
       final data = res.data?['data'] as Map<String, dynamic>?;
       final access = data?['accessToken'] as String?;
       final refresh = data?['refreshToken'] as String?;

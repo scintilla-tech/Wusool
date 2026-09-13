@@ -79,9 +79,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     textDirection: TextDirection.ltr,
                     decoration: const InputDecoration(
                       labelText: 'رمز الجامعة',
+                      hintText: 'اتركه فارغاً لحساب المنصة',
                       prefixIcon: Icon(Icons.account_balance),
                     ),
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'مطلوب' : null,
+                    // Optional: university accounts require it; platform accounts leave it blank.
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
