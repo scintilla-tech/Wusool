@@ -26,32 +26,33 @@ class AuthUser {
   }
 }
 
+/// Explicit auth lifecycle. The app never has an ambiguous "loading" state:
+/// it is either initializing (only at true startup), unauthenticated, or
+/// authenticated.
+enum AuthStatus { initializing, unauthenticated, authenticated }
+
 class AuthState {
+  final AuthStatus status;
   final bool busy;
-  final bool authenticated;
-  final bool restoring;
   final String? errorMessage;
   final AuthUser? user;
 
   const AuthState({
+    this.status = AuthStatus.initializing,
     this.busy = false,
-    this.authenticated = false,
-    this.restoring = true,
     this.errorMessage,
     this.user,
   });
 
   AuthState copyWith({
+    AuthStatus? status,
     bool? busy,
-    bool? authenticated,
-    bool? restoring,
     String? errorMessage,
     AuthUser? user,
   }) {
     return AuthState(
+      status: status ?? this.status,
       busy: busy ?? this.busy,
-      authenticated: authenticated ?? this.authenticated,
-      restoring: restoring ?? this.restoring,
       errorMessage: errorMessage,
       user: user ?? this.user,
     );
@@ -73,21 +74,27 @@ class AuthNotifier extends Notifier<AuthState> {
 
     final tokenStore = ref.read(tokenStoreProvider);
     if (!tokenStore.hasTokens) {
-      state = state.copyWith(restoring: false);
+      state = const AuthState(status: AuthStatus.unauthenticated);
       return;
     }
 
     try {
       final api = ref.read(apiClientProvider);
       final res = await api.dio.get<Map<String, dynamic>>('/auth/me');
-      final data = res.data?['data'] as Map<String, dynamic>?;
-      state = AuthState(
-        authenticated: true,
-        user: data != null ? AuthUser.fromJson(data) : null,
-      );
+      final data = res.data?['data'];
+      if (data is Map) {
+        state = AuthState(
+          status: AuthStatus.authenticated,
+          user: AuthUser.fromJson(data.cast<String, dynamic>()),
+        );
+        return;
+      }
+      // No usable body (e.g. an unexpected 304): treat as signed out, never hang.
+      await tokenStore.clear();
+      state = const AuthState(status: AuthStatus.unauthenticated);
     } catch (_) {
       await tokenStore.clear();
-      state = const AuthState();
+      state = const AuthState(status: AuthStatus.unauthenticated);
     }
   }
 
@@ -118,7 +125,7 @@ class AuthNotifier extends Notifier<AuthState> {
       final tokenStore = ref.read(tokenStoreProvider);
       await tokenStore.save(access: access, refresh: refresh);
 
-      state = AuthState(authenticated: true, user: AuthUser.fromJson(user));
+      state = AuthState(status: AuthStatus.authenticated, user: AuthUser.fromJson(user));
       return true;
     } on DioException catch (e) {
       String? message;
@@ -149,7 +156,7 @@ class AuthNotifier extends Notifier<AuthState> {
       // ignore logout errors
     }
     await tokenStore.clear();
-    state = const AuthState(authenticated: false, restoring: false);
+    state = const AuthState(status: AuthStatus.unauthenticated);
   }
 }
 

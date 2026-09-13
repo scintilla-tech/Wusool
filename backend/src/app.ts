@@ -46,6 +46,10 @@ export function createApp({
   const app = express();
 
   app.disable('x-powered-by');
+  // Authenticated API JSON must not be cached. Disabling ETag prevents browsers
+  // from sending If-None-Match and receiving a bodyless 304 for endpoints such
+  // as /auth/me (which is unusable for API clients).
+  app.set('etag', false);
 
   if (config.TRUST_PROXY > 0) {
     app.set('trust proxy', config.TRUST_PROXY);
@@ -53,6 +57,10 @@ export function createApp({
 
   app.use(createRequestLogger(logger, config));
   app.use(helmet());
+  app.use((_req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store');
+    next();
+  });
 
   const allowedOrigins = parseCorsOrigins(config.CORS_ALLOWED_ORIGINS);
   app.use(
