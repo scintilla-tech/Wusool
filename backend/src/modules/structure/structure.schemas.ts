@@ -15,6 +15,7 @@ export const branchCreateSchema = z
     code: z.string().trim().min(1).max(64).optional(),
     latitude: latitudeSchema.optional(),
     longitude: longitudeSchema.optional(),
+    radius: z.coerce.number().positive().max(5000).optional(),
   })
   .strict();
 

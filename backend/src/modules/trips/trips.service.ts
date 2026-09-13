@@ -142,7 +142,24 @@ export class TripService {
     if (trip.status !== 'IN_PROGRESS') {
       throw new AppError(409, 'INVALID_STATE', 'Trip is not in progress');
     }
+    await this.finishTrip(tenantId, tripId, 'TRIP_COMPLETED', actorUserId);
+    return this.prisma.dailyTrip.findUnique({ where: { id: tripId } });
+  }
 
+  async completeTripByGeofence(tenantId: string, tripId: string): Promise<boolean> {
+    const trip = await this.prisma.dailyTrip.findFirst({ where: { id: tripId, tenantId } });
+    if (!trip) throw new AppError(404, 'NOT_FOUND', 'Trip not found');
+    if (trip.status !== 'IN_PROGRESS') return false;
+    await this.finishTrip(tenantId, tripId, 'TRIP_AUTO_COMPLETED_BY_GEOFENCE', null);
+    return true;
+  }
+
+  private async finishTrip(
+    tenantId: string,
+    tripId: string,
+    action: string,
+    actorUserId: string | null,
+  ): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
       await tx.dailyTrip.update({
         where: { id: tripId },
@@ -154,9 +171,7 @@ export class TripService {
         data: { transportConfirmed: true },
       });
     });
-
-    await this.audit(tenantId, actorUserId, 'TRIP_COMPLETED', 'DailyTrip', tripId);
-    return this.prisma.dailyTrip.findUnique({ where: { id: tripId } });
+    await this.audit(tenantId, actorUserId, action, 'DailyTrip', tripId);
   }
 
   // ----- Helpers -----
@@ -196,7 +211,7 @@ export class TripService {
 
   private async audit(
     tenantId: string,
-    actorUserId: string,
+    actorUserId: string | null,
     action: string,
     entityType: string,
     entityId: string,

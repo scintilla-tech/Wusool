@@ -224,6 +224,7 @@ model Branch {
   code      String?
   latitude  Float?
   longitude Float?
+  radius    Float?
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
