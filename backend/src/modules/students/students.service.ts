@@ -4,7 +4,28 @@ import { hashPassword } from '../../utils/password';
 import { toPrismaPagination, type Paginated } from '../../utils/pagination';
 import type { StudentCreateInput, StudentUpdateInput } from './students.schemas';
 
-type StudentUser = Prisma.UserGetPayload<{ include: { studentProfile: true } }>;
+const studentBaseSelect = {
+  id: true,
+  firstName: true,
+  lastName: true,
+  email: true,
+  phone: true,
+  isActive: true,
+} satisfies Prisma.UserSelect;
+
+// List queries must NOT retrieve sensitive home coordinates.
+const studentListSelect = {
+  ...studentBaseSelect,
+  studentProfile: { select: { studentId: true } },
+} satisfies Prisma.UserSelect;
+
+const studentDetailSelect = {
+  ...studentBaseSelect,
+  studentProfile: { select: { studentId: true, homeLatitude: true, homeLongitude: true } },
+} satisfies Prisma.UserSelect;
+
+type StudentListUser = Prisma.UserGetPayload<{ select: typeof studentListSelect }>;
+type StudentDetailUser = Prisma.UserGetPayload<{ select: typeof studentDetailSelect }>;
 
 interface StudentListDto {
   id: string;
@@ -21,7 +42,7 @@ interface StudentDetailDto extends StudentListDto {
   homeLongitude: number | null;
 }
 
-function toListDto(user: StudentUser): StudentListDto {
+function toListDto(user: StudentListUser): StudentListDto {
   return {
     id: user.id,
     firstName: user.firstName,
@@ -33,7 +54,7 @@ function toListDto(user: StudentUser): StudentListDto {
   };
 }
 
-function toDetailDto(user: StudentUser): StudentDetailDto {
+function toDetailDto(user: StudentDetailUser): StudentDetailDto {
   return {
     ...toListDto(user),
     homeLatitude: user.studentProfile?.homeLatitude ?? null,
@@ -51,7 +72,7 @@ export class StudentsService {
         where,
         ...toPrismaPagination(page, limit),
         orderBy: { createdAt: 'desc' },
-        include: { studentProfile: true },
+        select: studentListSelect,
       }),
       this.prisma.user.count({ where }),
     ]);
@@ -88,7 +109,7 @@ export class StudentsService {
       });
       return tx.user.findUniqueOrThrow({
         where: { id: created.id },
-        include: { studentProfile: true },
+        select: studentDetailSelect,
       });
     });
 
@@ -135,10 +156,10 @@ export class StudentsService {
     await this.prisma.user.update({ where: { id }, data: { isActive: false } });
   }
 
-  private async findStudent(tenantId: string, id: string): Promise<StudentUser> {
+  private async findStudent(tenantId: string, id: string): Promise<StudentDetailUser> {
     const user = await this.prisma.user.findFirst({
       where: { id, tenantId, role: 'STUDENT' },
-      include: { studentProfile: true },
+      select: studentDetailSelect,
     });
     if (!user) throw new AppError(404, 'NOT_FOUND', 'Student not found');
     return user;

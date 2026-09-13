@@ -322,6 +322,7 @@ model StudentAssignment {
   updatedAt        DateTime       @updatedAt
 
   @@index([tenantId, studentProfileId])
+  @@index([tenantId, routeId])
   @@index([tenantId])
 }
 
@@ -399,6 +400,7 @@ model DailyTrip {
   tripStudents TripStudent[]
 
   @@index([tenantId, tripDate])
+  @@index([tenantId, driverProfileId, tripDate])
   @@index([tenantId])
 }
 

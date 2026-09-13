@@ -128,7 +128,7 @@ export class StructureService {
         include: {
           routeNeighborhoods: {
             orderBy: { sequenceOrder: 'asc' },
-            include: { neighborhood: true },
+            select: { sequenceOrder: true, neighborhood: { select: { id: true, name: true } } },
           },
         },
       }),
@@ -141,7 +141,10 @@ export class StructureService {
     const route = await this.prisma.route.findFirst({
       where: { id, tenantId },
       include: {
-        routeNeighborhoods: { orderBy: { sequenceOrder: 'asc' }, include: { neighborhood: true } },
+        routeNeighborhoods: {
+          orderBy: { sequenceOrder: 'asc' },
+          select: { sequenceOrder: true, neighborhood: { select: { id: true, name: true } } },
+        },
       },
     });
     if (!route) throw new AppError(404, 'NOT_FOUND', 'Route not found');
@@ -192,16 +195,14 @@ export class StructureService {
 
     return this.prisma.$transaction([
       this.prisma.routeNeighborhood.deleteMany({ where: { routeId } }),
-      ...stops.map((s) =>
-        this.prisma.routeNeighborhood.create({
-          data: {
-            tenantId,
-            routeId,
-            neighborhoodId: s.neighborhoodId,
-            sequenceOrder: s.sequenceOrder,
-          },
-        }),
-      ),
+      this.prisma.routeNeighborhood.createMany({
+        data: stops.map((s) => ({
+          tenantId,
+          routeId,
+          neighborhoodId: s.neighborhoodId,
+          sequenceOrder: s.sequenceOrder,
+        })),
+      }),
     ]);
   }
 

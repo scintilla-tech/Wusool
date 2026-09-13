@@ -1,26 +1,37 @@
 import type { PrismaClient } from '@prisma/client';
 import { AppError } from '../../utils/appError';
+import { toPrismaPagination, type Paginated } from '../../utils/pagination';
 
 export class AssignmentsService {
   constructor(private readonly prisma: PrismaClient) {}
 
   // ----- Student assignments -----
-  async listStudentAssignments(tenantId: string) {
-    return this.prisma.studentAssignment.findMany({
-      where: { tenantId, isActive: true },
-      select: {
-        id: true,
-        studentProfileId: true,
-        routeId: true,
-        branchId: true,
-        isActive: true,
-        assignedAt: true,
-        studentProfile: { select: { id: true, studentId: true, userId: true } },
-        route: { select: { id: true, name: true, code: true } },
-        branch: { select: { id: true, name: true, code: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+  async listStudentAssignments(
+    tenantId: string,
+    page: number,
+    limit: number,
+  ): Promise<Paginated<unknown>> {
+    const where = { tenantId, isActive: true };
+    const [items, total] = await Promise.all([
+      this.prisma.studentAssignment.findMany({
+        where,
+        ...toPrismaPagination(page, limit),
+        select: {
+          id: true,
+          studentProfileId: true,
+          routeId: true,
+          branchId: true,
+          isActive: true,
+          assignedAt: true,
+          studentProfile: { select: { id: true, studentId: true, userId: true } },
+          route: { select: { id: true, name: true, code: true } },
+          branch: { select: { id: true, name: true, code: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.studentAssignment.count({ where }),
+    ]);
+    return { items, page, limit, total };
   }
 
   async assignStudent(
@@ -56,20 +67,30 @@ export class AssignmentsService {
   }
 
   // ----- Driver assignments -----
-  async listDriverAssignments(tenantId: string) {
-    return this.prisma.driverAssignment.findMany({
-      where: { tenantId, isActive: true },
-      select: {
-        id: true,
-        driverProfileId: true,
-        busId: true,
-        isActive: true,
-        assignedAt: true,
-        driverProfile: { select: { id: true, employeeId: true, userId: true } },
-        bus: { select: { id: true, plateNumber: true, name: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+  async listDriverAssignments(
+    tenantId: string,
+    page: number,
+    limit: number,
+  ): Promise<Paginated<unknown>> {
+    const where = { tenantId, isActive: true };
+    const [items, total] = await Promise.all([
+      this.prisma.driverAssignment.findMany({
+        where,
+        ...toPrismaPagination(page, limit),
+        select: {
+          id: true,
+          driverProfileId: true,
+          busId: true,
+          isActive: true,
+          assignedAt: true,
+          driverProfile: { select: { id: true, employeeId: true, userId: true } },
+          bus: { select: { id: true, plateNumber: true, name: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.driverAssignment.count({ where }),
+    ]);
+    return { items, page, limit, total };
   }
 
   async assignDriver(tenantId: string, input: { driverProfileId: string; busId: string }) {
@@ -104,20 +125,30 @@ export class AssignmentsService {
   }
 
   // ----- Supervisor assignments -----
-  async listSupervisorAssignments(tenantId: string) {
-    return this.prisma.supervisorBusAssignment.findMany({
-      where: { tenantId, isActive: true },
-      select: {
-        id: true,
-        supervisorProfileId: true,
-        busId: true,
-        isActive: true,
-        assignedAt: true,
-        supervisorProfile: { select: { id: true, employeeId: true, userId: true } },
-        bus: { select: { id: true, plateNumber: true, name: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+  async listSupervisorAssignments(
+    tenantId: string,
+    page: number,
+    limit: number,
+  ): Promise<Paginated<unknown>> {
+    const where = { tenantId, isActive: true };
+    const [items, total] = await Promise.all([
+      this.prisma.supervisorBusAssignment.findMany({
+        where,
+        ...toPrismaPagination(page, limit),
+        select: {
+          id: true,
+          supervisorProfileId: true,
+          busId: true,
+          isActive: true,
+          assignedAt: true,
+          supervisorProfile: { select: { id: true, employeeId: true, userId: true } },
+          bus: { select: { id: true, plateNumber: true, name: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.supervisorBusAssignment.count({ where }),
+    ]);
+    return { items, page, limit, total };
   }
 
   async assignSupervisor(tenantId: string, input: { supervisorProfileId: string; busId: string }) {

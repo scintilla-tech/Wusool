@@ -3,6 +3,7 @@ import { asyncHandler } from '../../utils/asyncHandler';
 import { validate } from '../../middlewares/validate';
 import { createScopedRouter, type ScopeDeps } from '../../middlewares/scope';
 import { AppError } from '../../utils/appError';
+import { paginationSchema } from '../../validation/common';
 import { AssignmentsService } from './assignments.service';
 import {
   assignDriverSchema,
@@ -16,6 +17,11 @@ function tenantOf(req: import('express').Request): string {
   return tenantId;
 }
 
+function pageParams(req: import('express').Request): { page: number; limit: number } {
+  const q = req.query as unknown as { page: number; limit: number };
+  return { page: q.page, limit: q.limit };
+}
+
 export function createAssignmentsRouter(deps: ScopeDeps): Router {
   const router = createScopedRouter(deps, ['UNIVERSITY_ADMIN']);
   const service = new AssignmentsService(deps.prisma);
@@ -23,8 +29,13 @@ export function createAssignmentsRouter(deps: ScopeDeps): Router {
   // Students
   router.get(
     '/students',
+    validate({ query: paginationSchema }),
     asyncHandler(async (req, res) => {
-      res.json({ success: true, data: await service.listStudentAssignments(tenantOf(req)) });
+      const { page, limit } = pageParams(req);
+      res.json({
+        success: true,
+        data: await service.listStudentAssignments(tenantOf(req), page, limit),
+      });
     }),
   );
   router.post(
@@ -47,8 +58,13 @@ export function createAssignmentsRouter(deps: ScopeDeps): Router {
   // Drivers
   router.get(
     '/drivers',
+    validate({ query: paginationSchema }),
     asyncHandler(async (req, res) => {
-      res.json({ success: true, data: await service.listDriverAssignments(tenantOf(req)) });
+      const { page, limit } = pageParams(req);
+      res.json({
+        success: true,
+        data: await service.listDriverAssignments(tenantOf(req), page, limit),
+      });
     }),
   );
   router.post(
@@ -71,8 +87,13 @@ export function createAssignmentsRouter(deps: ScopeDeps): Router {
   // Supervisors
   router.get(
     '/supervisors',
+    validate({ query: paginationSchema }),
     asyncHandler(async (req, res) => {
-      res.json({ success: true, data: await service.listSupervisorAssignments(tenantOf(req)) });
+      const { page, limit } = pageParams(req);
+      res.json({
+        success: true,
+        data: await service.listSupervisorAssignments(tenantOf(req), page, limit),
+      });
     }),
   );
   router.post(

@@ -4,9 +4,45 @@ import { hashPassword } from '../../utils/password';
 import { toPrismaPagination, type Paginated } from '../../utils/pagination';
 import type { EmployeeCreateInput, EmployeeUpdateInput } from './employees.schemas';
 
-type EmployeeUser = Prisma.UserGetPayload<{
-  include: { driverProfile: true; supervisorProfile: true; fieldSupervisorProfile: true };
-}>;
+const employeeSelect = {
+  id: true,
+  role: true,
+  firstName: true,
+  lastName: true,
+  email: true,
+  phone: true,
+  isActive: true,
+  driverProfile: {
+    select: {
+      employeeId: true,
+      nationality: true,
+      joinDate: true,
+      iqamaExpiry: true,
+      employmentStatus: true,
+      licenseNumber: true,
+    },
+  },
+  supervisorProfile: {
+    select: {
+      employeeId: true,
+      nationality: true,
+      joinDate: true,
+      iqamaExpiry: true,
+      employmentStatus: true,
+    },
+  },
+  fieldSupervisorProfile: {
+    select: {
+      employeeId: true,
+      nationality: true,
+      joinDate: true,
+      iqamaExpiry: true,
+      employmentStatus: true,
+    },
+  },
+} satisfies Prisma.UserSelect;
+
+type EmployeeUser = Prisma.UserGetPayload<{ select: typeof employeeSelect }>;
 
 const EMPLOYEE_ROLES: Role[] = ['DRIVER', 'SUPERVISOR', 'FIELD_SUPERVISOR'];
 
@@ -66,7 +102,7 @@ export class EmployeesService {
         where,
         ...toPrismaPagination(page, limit),
         orderBy: { createdAt: 'desc' },
-        include: { driverProfile: true, supervisorProfile: true, fieldSupervisorProfile: true },
+        select: employeeSelect,
       }),
       this.prisma.user.count({ where }),
     ]);
@@ -115,7 +151,7 @@ export class EmployeesService {
 
       return tx.user.findUniqueOrThrow({
         where: { id: created.id },
-        include: { driverProfile: true, supervisorProfile: true, fieldSupervisorProfile: true },
+        select: employeeSelect,
       });
     });
 
@@ -181,7 +217,7 @@ export class EmployeesService {
   private async findEmployee(tenantId: string, id: string): Promise<EmployeeUser> {
     const user = await this.prisma.user.findFirst({
       where: { id, tenantId, role: { in: EMPLOYEE_ROLES } },
-      include: { driverProfile: true, supervisorProfile: true, fieldSupervisorProfile: true },
+      select: employeeSelect,
     });
     if (!user) throw new AppError(404, 'NOT_FOUND', 'Employee not found');
     return user;
