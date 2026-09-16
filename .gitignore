@@ -17,6 +17,12 @@ npm-debug.log*
 # Project-local temp artifacts
 .tmp/
 
+# AI agent / phase working files (not for public repo)
+.opencode/
+AGENTS.md
+docs/phases/
+tools/
+
 # Test / coverage
 coverage/
 

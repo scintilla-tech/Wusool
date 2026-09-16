@@ -4,35 +4,33 @@ Flutter client for WASL — Arabic-first (RTL) multi-role university transportat
 
 ## Requirements
 
-Flutter SDK (this machine has Flutter 3.47.1 under the SnapSortTools directory). Use the
-project-local wrapper so the SDK + JDK 21 + Android SDK + pub cache are resolved:
+Flutter SDK (stable) with a configured toolchain (JDK + Android SDK for Android builds).
 
-```powershell
-# from the repository root
-.\tools\flutter.ps1 --version
-.\tools\flutter.ps1 devices
+```bash
+flutter --version
+flutter devices
 ```
 
 ## Run
 
-```powershell
+```bash
 cd mobile
-..\tools\flutter.ps1 pub get
-..\tools\flutter.ps1 run -d chrome      # or -d windows
+flutter pub get
+flutter run -d chrome      # or -d windows / an attached device
 ```
 
 The backend base URL defaults to `http://localhost:3100/api/v1` and can be overridden:
 
-```powershell
-..\tools\flutter.ps1 run -d chrome --dart-define=API_BASE_URL=http://localhost:3100/api/v1
+```bash
+flutter run -d chrome --dart-define=API_BASE_URL=http://localhost:3100/api/v1
 ```
 
 ## Verify
 
-```powershell
-..\tools\flutter.ps1 analyze
-..\tools\flutter.ps1 test
-..\tools\flutter.ps1 build web --release
+```bash
+flutter analyze
+flutter test
+flutter build web --release
 ```
 
 ## Demo credentials (development)
