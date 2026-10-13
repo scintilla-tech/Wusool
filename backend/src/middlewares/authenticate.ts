@@ -33,8 +33,17 @@ export function createAuthenticate({ prisma, accessSecret }: AuthenticateDeps): 
       throw new AppError(401, 'UNAUTHORIZED', 'Invalid or expired token');
     }
 
-    const user = await prisma.user.findUnique({ where: { id: payload.sub } });
-    if (!user || !user.isActive) {
+    const user = await prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: {
+        id: true,
+        tenantId: true,
+        role: true,
+        isActive: true,
+        tenant: { select: { isActive: true } },
+      },
+    });
+    if (!user || !user.isActive || (user.tenantId !== null && user.tenant?.isActive !== true)) {
       throw new AppError(401, 'UNAUTHORIZED', 'User not found or inactive');
     }
 

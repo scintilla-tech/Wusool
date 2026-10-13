@@ -23,7 +23,9 @@ class AdminDashboardScreen extends ConsumerWidget {
       ),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('تعذر تحميل الإحصائيات\n$e', textAlign: TextAlign.center)),
+        error: (e, _) => Center(
+          child: Text('تعذر تحميل الإحصائيات\n$e', textAlign: TextAlign.center),
+        ),
         data: (d) => GridView.count(
           padding: const EdgeInsets.all(16),
           crossAxisCount: 2,
@@ -31,12 +33,28 @@ class AdminDashboardScreen extends ConsumerWidget {
           crossAxisSpacing: 12,
           childAspectRatio: 1.5,
           children: [
-            _StatCard(label: 'الحافلات', value: d.buses, icon: Icons.directions_bus),
+            _StatCard(
+              label: 'الحافلات',
+              value: d.buses,
+              icon: Icons.directions_bus,
+            ),
             _StatCard(label: 'المسارات', value: d.routes, icon: Icons.route),
             _StatCard(label: 'الطالبات', value: d.students, icon: Icons.school),
-            _StatCard(label: 'السائقون', value: d.drivers, icon: Icons.person_pin),
-            _StatCard(label: 'المشرفات', value: d.supervisors, icon: Icons.supervisor_account),
-            _StatCard(label: 'رحلات اليوم', value: d.tripsToday, icon: Icons.today),
+            _StatCard(
+              label: 'السائقون',
+              value: d.drivers,
+              icon: Icons.person_pin,
+            ),
+            _StatCard(
+              label: 'المشرفات',
+              value: d.supervisors,
+              icon: Icons.supervisor_account,
+            ),
+            _StatCard(
+              label: 'رحلات اليوم',
+              value: d.tripsToday,
+              icon: Icons.today,
+            ),
           ],
         ),
       ),
@@ -49,7 +67,11 @@ class _StatCard extends StatelessWidget {
   final int value;
   final IconData icon;
 
-  const _StatCard({required this.label, required this.value, required this.icon});
+  const _StatCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -61,8 +83,18 @@ class _StatCard extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Icon(icon, color: WaslColors.emerald, size: 26),
-            Text('$value', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: WaslColors.navy)),
-            Text(label, style: const TextStyle(color: WaslColors.textSecondary)),
+            Text(
+              '$value',
+              style: const TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.w800,
+                color: WaslColors.navy,
+              ),
+            ),
+            Text(
+              label,
+              style: const TextStyle(color: WaslColors.textSecondary),
+            ),
           ],
         ),
       ),

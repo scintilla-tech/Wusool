@@ -46,7 +46,11 @@ class HomeScreen extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.directions_bus, size: 72, color: WaslColors.emerald),
+            const Icon(
+              Icons.directions_bus,
+              size: 72,
+              color: WaslColors.emerald,
+            ),
             const SizedBox(height: 16),
             Text(
               'مرحباً، ${user?.firstName ?? ''}',
@@ -55,7 +59,10 @@ class HomeScreen extends ConsumerWidget {
             const SizedBox(height: 8),
             Text(
               _roleLabel(user?.role),
-              style: const TextStyle(fontSize: 15, color: WaslColors.textSecondary),
+              style: const TextStyle(
+                fontSize: 15,
+                color: WaslColors.textSecondary,
+              ),
             ),
             const SizedBox(height: 32),
             const Padding(

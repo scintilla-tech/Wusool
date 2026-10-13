@@ -7,15 +7,15 @@ export const TENANT_CODE = __ENV.WASL_TENANT || 'KSU';
 export const CREDENTIALS = {
   admin: {
     phone: __ENV.WASL_ADMIN_PHONE || '+966501111111',
-    password: __ENV.WASL_ADMIN_PASSWORD || 'AdminPass#1',
+    password: __ENV.WASL_ADMIN_PASSWORD,
   },
   driver: {
     phone: __ENV.WASL_DRIVER_PHONE || '+966550000001',
-    password: __ENV.WASL_DRIVER_PASSWORD || 'DriverPass#1',
+    password: __ENV.WASL_DRIVER_PASSWORD,
   },
   student: {
     phone: __ENV.WASL_STUDENT_PHONE || '+966551000001',
-    password: __ENV.WASL_STUDENT_PASSWORD || 'Student#123',
+    password: __ENV.WASL_STUDENT_PASSWORD,
   },
 };
 

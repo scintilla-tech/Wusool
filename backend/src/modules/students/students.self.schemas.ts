@@ -20,7 +20,16 @@ export const registerSchema = z
     homeLatitude: latitudeSchema.optional(),
     homeLongitude: longitudeSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    if ((value.homeLatitude === undefined) !== (value.homeLongitude === undefined)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['homeLatitude'],
+        message: 'Home latitude and longitude must be provided together',
+      });
+    }
+  });
 
 export const verifySchema = z
   .object({
@@ -39,7 +48,16 @@ export const profileUpdateSchema = z
     homeLatitude: latitudeSchema.optional(),
     homeLongitude: longitudeSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    if ((value.homeLatitude === undefined) !== (value.homeLongitude === undefined)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['homeLatitude'],
+        message: 'Home latitude and longitude must be provided together',
+      });
+    }
+  });
 
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type VerifyInput = z.infer<typeof verifySchema>;

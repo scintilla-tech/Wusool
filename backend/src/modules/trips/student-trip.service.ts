@@ -1,12 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
 import { AppError } from '../../utils/appError';
+import { dateOnly } from '../../utils/date';
 import type { LatestLocation, LocationService } from '../tracking/location.service';
-
-function dateOnly(d: Date): Date {
-  const copy = new Date(d);
-  copy.setHours(0, 0, 0, 0);
-  return copy;
-}
 
 export interface StudentTripView {
   trip: { id: string; status: string; routeName: string | null; busPlate: string | null } | null;
@@ -40,7 +35,8 @@ export class StudentTripService {
         tenantId,
         routeId: assignment.routeId,
         tripDate: dateOnly(new Date()),
-        status: { in: ['SCHEDULED', 'IN_PROGRESS'] },
+        status: { in: ['IN_PROGRESS', 'SCHEDULED'] },
+        tripStudents: { some: { tenantId, studentProfileId: profile.id } },
       },
       select: {
         id: true,
@@ -48,6 +44,7 @@ export class StudentTripService {
         route: { select: { name: true } },
         bus: { select: { plateNumber: true } },
       },
+      orderBy: { direction: 'asc' },
     });
     if (!trip) {
       return { trip: null, myStatus: null, latestLocation: null };

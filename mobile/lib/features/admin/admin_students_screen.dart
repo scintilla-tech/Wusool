@@ -23,9 +23,13 @@ class AdminStudentsScreen extends ConsumerWidget {
       ),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('تعذر تحميل الطالبات\n$e', textAlign: TextAlign.center)),
+        error: (e, _) => Center(
+          child: Text('تعذر تحميل الطالبات\n$e', textAlign: TextAlign.center),
+        ),
         data: (students) {
-          if (students.isEmpty) return const Center(child: Text('لا توجد طالبات'));
+          if (students.isEmpty) {
+            return const Center(child: Text('لا توجد طالبات'));
+          }
           return ListView.separated(
             itemCount: students.length,
             separatorBuilder: (_, _) => const Divider(height: 1),
@@ -33,14 +37,26 @@ class AdminStudentsScreen extends ConsumerWidget {
               final s = students[i];
               return ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: s.isActive ? WaslColors.navy : WaslColors.textSecondary,
-                  child: const Icon(Icons.person, color: Colors.white, size: 20),
+                  backgroundColor: s.isActive
+                      ? WaslColors.navy
+                      : WaslColors.textSecondary,
+                  child: const Icon(
+                    Icons.person,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
                 title: Text('${s.firstName} ${s.lastName}'),
                 subtitle: Text('${s.studentId ?? ''} • ${s.phone}'),
                 trailing: s.isActive
                     ? null
-                    : const Text('معطّل', style: TextStyle(color: WaslColors.danger, fontSize: 12)),
+                    : const Text(
+                        'معطّل',
+                        style: TextStyle(
+                          color: WaslColors.danger,
+                          fontSize: 12,
+                        ),
+                      ),
               );
             },
           );

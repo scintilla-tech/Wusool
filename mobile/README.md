@@ -35,21 +35,17 @@ flutter build web --release
 
 ## Demo credentials (development)
 
-Start the backend and seed demo data (`backend`: `npm run prisma:seed`), then log in with:
+Start the backend and seed demo data as described in `docs/RUN_INSTRUCTIONS.md`. Current
+synthetic credentials and all role phone numbers are stored in ignored
+`backend/.env.demo.local`; tracked documentation intentionally does not contain passwords.
 
-| Role | Tenant | Phone | Password |
-| --- | --- | --- | --- |
-| University Admin | KSU | +966501111111 | AdminPass#1 |
-| Driver 1 | KSU | +966550000001 | DriverPass#1 |
-| Driver 2 | KSU | +966550000002 | DriverPass#2 |
-| Supervisor | KSU | +966550000003 | SuperPass#1 |
-| Student | KSU | +966551000001 | Student#123 |
+Use tenant `KSU` for university roles; the platform administrator leaves the tenant blank.
 
 ## Structure
 
 ```
 lib/
-  main.dart                 entry (ProviderScope + SharedPreferences)
+  main.dart                 entry (ProviderScope + secure-token migration)
   app.dart                  MaterialApp (RTL, theme, auth gate)
   core/
     config.dart             API base URL (dart-define)

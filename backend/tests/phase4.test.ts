@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { PrismaClient } from '@prisma/client';
-import { AttendanceService } from '../src/modules/attendance/attendance.service';
+import { attendanceOpensAt, addBusinessDays, dateOnly } from '../src/utils/date';
 import { StudentSelfService } from '../src/modules/students/students.self.service';
 import { OtpService } from '../src/modules/otp/otp.service';
 import { MockOtpProvider } from '../src/providers/otp';
@@ -10,28 +10,17 @@ function prisma(partial: unknown): PrismaClient {
 }
 
 describe('attendance intent', () => {
-  it('rejects setting intent after the cutoff', async () => {
-    const service = new AttendanceService(
-      prisma({
-        studentProfile: { findFirst: vi.fn().mockResolvedValue({ id: 'sp1', tenantId: 't1' }) },
-      }),
-      '00:00',
+  it('opens outbound at 18:00 Riyadh on the previous day', () => {
+    const operationalDate = dateOnly(new Date('2026-10-12T12:00:00Z'));
+    expect(attendanceOpensAt('OUTBOUND', operationalDate).toISOString()).toBe(
+      '2026-10-11T15:00:00.000Z',
     );
-    await expect(service.setIntentForUser('t1', 'u1', 'ATTENDING')).rejects.toThrow('cutoff');
   });
 
-  it('upserts the intent before the cutoff', async () => {
-    const upsert = vi.fn().mockResolvedValue({ id: 'ai1' });
-    const findFirst = vi.fn().mockResolvedValue({ id: 'sp1', tenantId: 't1' });
-    const service = new AttendanceService(
-      prisma({ studentProfile: { findFirst }, attendanceIntent: { upsert } }),
-      '23:59',
-    );
-    await service.setIntentForUser('t1', 'u1', 'ATTENDING');
-    expect(upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        create: expect.objectContaining({ tenantId: 't1', intent: 'ATTENDING' }),
-      }),
+  it('opens return at 11:00 Riyadh on the operational day', () => {
+    const operationalDate = addBusinessDays(new Date('2026-10-11T12:00:00Z'), 1);
+    expect(attendanceOpensAt('RETURN', operationalDate).toISOString()).toBe(
+      '2026-10-12T08:00:00.000Z',
     );
   });
 });

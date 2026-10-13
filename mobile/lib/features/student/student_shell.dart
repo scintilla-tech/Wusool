@@ -28,9 +28,15 @@ class _StudentShellState extends State<StudentShell> {
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.event_available), label: 'الحضور'),
+          NavigationDestination(
+            icon: Icon(Icons.event_available),
+            label: 'الحضور',
+          ),
           NavigationDestination(icon: Icon(Icons.map), label: 'التتبع'),
-          NavigationDestination(icon: Icon(Icons.person), label: 'الملف الشخصي'),
+          NavigationDestination(
+            icon: Icon(Icons.person),
+            label: 'الملف الشخصي',
+          ),
         ],
       ),
     );

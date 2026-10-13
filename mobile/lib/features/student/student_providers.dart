@@ -2,19 +2,65 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_client.dart';
 
-class AttendanceToday {
-  final String? intent; // ATTENDING | ABSENT | null
-  final DateTime date;
+class AttendanceSessionView {
+  final String id;
+  final String direction;
+  final String status;
+  final String? intent;
+  final String? expectedFinishTime;
+  final DateTime operationalDate;
+  final DateTime opensAt;
+  final bool isOpen;
 
-  const AttendanceToday({required this.intent, required this.date});
+  const AttendanceSessionView({
+    required this.id,
+    required this.direction,
+    required this.status,
+    required this.operationalDate,
+    required this.opensAt,
+    required this.isOpen,
+    this.intent,
+    this.expectedFinishTime,
+  });
+
+  factory AttendanceSessionView.fromJson(Map<String, dynamic> json) =>
+      AttendanceSessionView(
+        id: json['id'] as String? ?? '',
+        direction: json['direction'] as String? ?? 'OUTBOUND',
+        status: json['status'] as String? ?? 'OPEN',
+        operationalDate: DateTime.parse(json['operationalDate'] as String),
+        opensAt: DateTime.parse(json['opensAt'] as String),
+        isOpen: json['isOpen'] as bool? ?? false,
+        intent: json['intent'] as String?,
+        expectedFinishTime: json['expectedFinishTime'] as String?,
+      );
 }
 
-final attendanceTodayProvider = FutureProvider.autoDispose<AttendanceToday>((ref) async {
+class AttendanceToday {
+  final List<AttendanceSessionView> sessions;
+  const AttendanceToday({required this.sessions});
+
+  AttendanceSessionView byDirection(String direction) =>
+      sessions.firstWhere((session) => session.direction == direction);
+}
+
+final attendanceTodayProvider = FutureProvider.autoDispose<AttendanceToday>((
+  ref,
+) async {
   final api = ref.watch(apiClientProvider);
   final res = await api.dio.get<Map<String, dynamic>>('/attendance/today');
   final data = res.data?['data'];
-  final intent = (data is Map) ? data['intent'] as String? : null;
-  return AttendanceToday(intent: intent, date: DateTime.now());
+  final raw = data is Map ? data['sessions'] : null;
+  final sessions = raw is List
+      ? raw
+            .whereType<Map>()
+            .map(
+              (item) =>
+                  AttendanceSessionView.fromJson(item.cast<String, dynamic>()),
+            )
+            .toList()
+      : <AttendanceSessionView>[];
+  return AttendanceToday(sessions: sessions);
 });
 
 class StudentTripView {
@@ -57,11 +103,15 @@ class StudentTripView {
   }
 }
 
-final studentTripProvider = FutureProvider.autoDispose<StudentTripView>((ref) async {
+final studentTripProvider = FutureProvider.autoDispose<StudentTripView>((
+  ref,
+) async {
   final api = ref.watch(apiClientProvider);
   final res = await api.dio.get<Map<String, dynamic>>('/students/me/trip');
   final data = res.data?['data'];
-  return StudentTripView.fromJson(data is Map<String, dynamic> ? data : const {});
+  return StudentTripView.fromJson(
+    data is Map<String, dynamic> ? data : const {},
+  );
 });
 
 class StudentProfile {
@@ -96,9 +146,13 @@ class StudentProfile {
   }
 }
 
-final studentProfileProvider = FutureProvider.autoDispose<StudentProfile>((ref) async {
+final studentProfileProvider = FutureProvider.autoDispose<StudentProfile>((
+  ref,
+) async {
   final api = ref.watch(apiClientProvider);
   final res = await api.dio.get<Map<String, dynamic>>('/students/me');
   final data = res.data?['data'];
-  return StudentProfile.fromJson(data is Map<String, dynamic> ? data : const {});
+  return StudentProfile.fromJson(
+    data is Map<String, dynamic> ? data : const {},
+  );
 });

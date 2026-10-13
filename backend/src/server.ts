@@ -1,30 +1,39 @@
 import 'dotenv/config';
 import { createServer, type Server } from 'node:http';
-import { loadEnvConfig } from './config/env';
+import { loadEnvConfig, parseCorsOrigins } from './config/env';
 import { createLogger, scrub } from './config/logger';
 import { getPrismaClient, disconnectPrisma } from './providers/prisma';
 import { createApp } from './app';
 import { createSocketServer } from './sockets';
 import { LocationService } from './modules/tracking/location.service';
 import { TripService } from './modules/trips/trips.service';
+import { TripEventBus } from './modules/trips/trip-events';
 
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 
 async function main(): Promise<void> {
   const config = loadEnvConfig(process.env);
+  if (config.NODE_ENV === 'production' || config.NODE_ENV === 'staging') {
+    throw new Error(
+      'Production/staging startup refused: real OTP, push, and private durable storage providers are not configured',
+    );
+  }
   const logger = createLogger(config);
   const prisma = getPrismaClient();
 
-  const tripService = new TripService(prisma);
+  const tripEvents = new TripEventBus();
+  const tripService = new TripService(prisma, tripEvents);
   const locationService = new LocationService(prisma, tripService);
 
-  const app = createApp({ config, logger, prisma, locationService });
+  const app = createApp({ config, logger, prisma, locationService, tripService, tripEvents });
   const httpServer: Server = createServer(app);
 
   const io = createSocketServer(httpServer, {
     prisma,
     accessSecret: config.JWT_ACCESS_SECRET,
     locationService,
+    allowedOrigins: parseCorsOrigins(config.CORS_ALLOWED_ORIGINS),
+    tripEvents,
   });
 
   httpServer.listen(config.PORT, () => {

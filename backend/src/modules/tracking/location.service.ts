@@ -1,5 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
 import { AppError } from '../../utils/appError';
+import { dateOnly } from '../../utils/date';
 import { isWithinGeofence } from '../../utils/geofence';
 import { TripService } from '../trips/trips.service';
 
@@ -59,7 +60,13 @@ export class LocationService {
     if (!profile) throw new AppError(404, 'NOT_FOUND', 'Driver profile not found');
 
     const trip = await this.prisma.dailyTrip.findFirst({
-      where: { tenantId, driverProfileId: profile.id, status: 'IN_PROGRESS' },
+      where: {
+        tenantId,
+        driverProfileId: profile.id,
+        status: 'IN_PROGRESS',
+        tripDate: dateOnly(new Date()),
+      },
+      orderBy: { startedAt: 'desc' },
       include: { route: { include: { branch: true } } },
     });
     if (!trip) throw new AppError(409, 'NO_ACTIVE_TRIP', 'No active trip');

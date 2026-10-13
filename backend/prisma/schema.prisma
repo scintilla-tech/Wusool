@@ -44,6 +44,21 @@ enum AttendanceIntentType {
   ABSENT
 }
 
+enum TripDirection {
+  OUTBOUND
+  RETURN
+}
+
+enum AttendanceSessionStatus {
+  OPEN
+  CLOSED
+}
+
+enum AttendanceActorSource {
+  STUDENT_SELF_REGISTRATION
+  DRIVER_ASSISTED_REGISTRATION
+}
+
 enum TripStudentStatus {
   WAITING
   BOARDED
@@ -87,6 +102,8 @@ model Tenant {
   driverAssignments        DriverAssignment[]
   supervisorBusAssignments SupervisorBusAssignment[]
   attendanceIntents        AttendanceIntent[]
+  attendanceSessions       AttendanceSession[]
+  attendanceAudits         AttendanceAudit[]
   dailyTrips               DailyTrip[]
   tripStudents             TripStudent[]
   deviceTokens             DeviceToken[]
@@ -109,15 +126,17 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  studentProfile         StudentProfile?
-  driverProfile          DriverProfile?
-  supervisorProfile      SupervisorProfile?
-  fieldSupervisorProfile FieldSupervisorProfile?
-  deviceTokens           DeviceToken[]
-  notifications          Notification[]
-  userDocuments          UserDocument[]
-  auditLogs              AuditLog[]
-  refreshSessions        RefreshSession[]
+  studentProfile             StudentProfile?
+  driverProfile              DriverProfile?
+  supervisorProfile          SupervisorProfile?
+  fieldSupervisorProfile     FieldSupervisorProfile?
+  deviceTokens               DeviceToken[]
+  notifications              Notification[]
+  userDocuments              UserDocument[]
+  auditLogs                  AuditLog[]
+  refreshSessions            RefreshSession[]
+  performedAttendanceIntents AttendanceIntent[]      @relation("AttendanceIntentActor")
+  attendanceAudits           AttendanceAudit[]       @relation("AttendanceAuditActor")
 
   @@unique([tenantId, phone])
   @@unique([tenantId, email])
@@ -139,6 +158,7 @@ model StudentProfile {
 
   studentAssignments StudentAssignment[]
   attendanceIntents  AttendanceIntent[]
+  attendanceAudits   AttendanceAudit[]
   tripStudents       TripStudent[]
 
   @@unique([tenantId, studentId])
@@ -163,8 +183,9 @@ model DriverProfile {
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
 
-  driverAssignments DriverAssignment[]
-  dailyTrips        DailyTrip[]
+  driverAssignments        DriverAssignment[]
+  dailyTrips               DailyTrip[]
+  closedAttendanceSessions AttendanceSession[] @relation("AttendanceSessionClosedBy")
 
   @@unique([tenantId, employeeId])
   @@index([tenantId])
@@ -266,6 +287,7 @@ model Route {
 
   routeNeighborhoods RouteNeighborhood[]
   dailyTrips         DailyTrip[]
+  attendanceSessions AttendanceSession[]
   studentAssignments StudentAssignment[]
 
   @@unique([tenantId, code])
@@ -361,19 +383,73 @@ model SupervisorBusAssignment {
 }
 
 model AttendanceIntent {
-  id               String               @id @default(cuid())
-  tenantId         String
-  tenant           Tenant               @relation(fields: [tenantId], references: [id])
-  studentProfileId String
-  studentProfile   StudentProfile       @relation(fields: [studentProfileId], references: [id], onDelete: Restrict)
-  tripDate         DateTime             @db.Date
-  intent           AttendanceIntentType
-  note             String?
-  createdAt        DateTime             @default(now())
-  updatedAt        DateTime             @updatedAt
+  id                    String                @id @default(cuid())
+  tenantId              String
+  tenant                Tenant                @relation(fields: [tenantId], references: [id])
+  attendanceSessionId   String
+  attendanceSession     AttendanceSession     @relation(fields: [attendanceSessionId], references: [id], onDelete: Restrict)
+  studentProfileId      String
+  studentProfile        StudentProfile        @relation(fields: [studentProfileId], references: [id], onDelete: Restrict)
+  operationalDate       DateTime              @db.Date
+  direction             TripDirection
+  intent                AttendanceIntentType
+  note                  String?
+  expectedFinishMinutes Int?
+  source                AttendanceActorSource
+  actorUserId           String
+  actor                 User                  @relation("AttendanceIntentActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+  actorRole             Role
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
 
-  @@unique([studentProfileId, tripDate])
-  @@index([tenantId, tripDate])
+  @@unique([attendanceSessionId, studentProfileId])
+  @@index([tenantId, operationalDate, direction])
+  @@index([studentProfileId, operationalDate, direction])
+}
+
+model AttendanceSession {
+  id                      String                  @id @default(cuid())
+  tenantId                String
+  tenant                  Tenant                  @relation(fields: [tenantId], references: [id])
+  routeId                 String
+  route                   Route                   @relation(fields: [routeId], references: [id], onDelete: Restrict)
+  dailyTripId             String?                 @unique
+  dailyTrip               DailyTrip?              @relation(fields: [dailyTripId], references: [id], onDelete: Restrict)
+  operationalDate         DateTime                @db.Date
+  direction               TripDirection
+  status                  AttendanceSessionStatus @default(OPEN)
+  closedByDriverProfileId String?
+  closedByDriverProfile   DriverProfile?          @relation("AttendanceSessionClosedBy", fields: [closedByDriverProfileId], references: [id], onDelete: Restrict)
+  closedAt                DateTime?
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @updatedAt
+
+  attendanceIntents AttendanceIntent[]
+  attendanceAudits  AttendanceAudit[]
+
+  @@unique([tenantId, routeId, operationalDate, direction])
+  @@index([tenantId, operationalDate, direction, status])
+}
+
+model AttendanceAudit {
+  id                    String                @id @default(cuid())
+  tenantId              String
+  tenant                Tenant                @relation(fields: [tenantId], references: [id])
+  attendanceSessionId   String
+  attendanceSession     AttendanceSession     @relation(fields: [attendanceSessionId], references: [id], onDelete: Restrict)
+  studentProfileId      String
+  studentProfile        StudentProfile        @relation(fields: [studentProfileId], references: [id], onDelete: Restrict)
+  previousStatus        AttendanceIntentType?
+  attendanceStatus      AttendanceIntentType
+  source                AttendanceActorSource
+  actorUserId           String
+  actor                 User                  @relation("AttendanceAuditActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+  actorRole             Role
+  expectedFinishMinutes Int?
+  createdAt             DateTime              @default(now())
+
+  @@index([tenantId, attendanceSessionId, createdAt])
+  @@index([studentProfileId, createdAt])
 }
 
 model DailyTrip {
@@ -389,6 +465,7 @@ model DailyTrip {
   supervisorProfileId String?
   supervisorProfile   SupervisorProfile? @relation(fields: [supervisorProfileId], references: [id])
   tripDate            DateTime           @db.Date
+  direction           TripDirection      @default(OUTBOUND)
   status              TripStatus         @default(SCHEDULED)
   scheduledStartTime  DateTime?
   scheduledEndTime    DateTime?
@@ -397,10 +474,11 @@ model DailyTrip {
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
 
-  tripStudents TripStudent[]
+  tripStudents      TripStudent[]
+  attendanceSession AttendanceSession?
 
   @@index([tenantId, tripDate])
-  @@index([tenantId, driverProfileId, tripDate])
+  @@index([tenantId, driverProfileId, tripDate, direction])
   @@index([tenantId])
 }
 
@@ -429,14 +507,13 @@ model DeviceToken {
   tenant    Tenant?        @relation(fields: [tenantId], references: [id])
   userId    String
   user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token     String
+  token     String         @unique
   platform  DevicePlatform
   deviceId  String?
   isActive  Boolean        @default(true)
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
 
-  @@unique([userId, token])
   @@index([userId])
 }
 

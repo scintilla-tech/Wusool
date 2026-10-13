@@ -24,7 +24,9 @@ class ProfileScreen extends ConsumerWidget {
       ),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('تعذر تحميل الملف\n$e', textAlign: TextAlign.center)),
+        error: (e, _) => Center(
+          child: Text('تعذر تحميل الملف\n$e', textAlign: TextAlign.center),
+        ),
         data: (profile) => ListView(
           padding: const EdgeInsets.all(16),
           children: [
@@ -45,12 +47,17 @@ class ProfileScreen extends ConsumerWidget {
                         children: [
                           Text(
                             '${profile.firstName} ${profile.lastName}',
-                            style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+                            style: const TextStyle(
+                              fontSize: 19,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                           if (profile.studentId != null)
                             Text(
                               'الرقم الجامعي: ${profile.studentId}',
-                              style: const TextStyle(color: WaslColors.textSecondary),
+                              style: const TextStyle(
+                                color: WaslColors.textSecondary,
+                              ),
                             ),
                         ],
                       ),
@@ -60,42 +67,37 @@ class ProfileScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 12),
-            _InfoTile(icon: Icons.phone, label: 'رقم الجوال', value: profile.phone),
+            _InfoTile(
+              icon: Icons.phone,
+              label: 'رقم الجوال',
+              value: profile.phone,
+            ),
             if (profile.email != null)
-              _InfoTile(icon: Icons.email, label: 'البريد الجامعي', value: profile.email!),
+              _InfoTile(
+                icon: Icons.email,
+                label: 'البريد الجامعي',
+                value: profile.email!,
+              ),
             _InfoTile(
               icon: Icons.home,
               label: 'الموقع المنزلي',
-              value: (profile.homeLatitude != null && profile.homeLongitude != null)
+              value:
+                  (profile.homeLatitude != null &&
+                      profile.homeLongitude != null)
                   ? '${profile.homeLatitude!.toStringAsFixed(4)}, ${profile.homeLongitude!.toStringAsFixed(4)}'
                   : 'غير محدد',
             ),
             const SizedBox(height: 20),
             OutlinedButton.icon(
-              onPressed: () => _confirmDelete(context),
-              style: OutlinedButton.styleFrom(foregroundColor: WaslColors.danger),
+              onPressed: null,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: WaslColors.danger,
+              ),
               icon: const Icon(Icons.delete_outline),
-              label: const Text('طلب حذف الحساب'),
+              label: const Text('طلب حذف الحساب — غير متاح حالياً'),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  void _confirmDelete(BuildContext context) {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('حذف الحساب'),
-        content: const Text('سيتم إرسال طلب حذف الحساب للإدارة. هل أنت متأكدة؟'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('تأكيد الطلب', style: TextStyle(color: WaslColors.danger)),
-          ),
-        ],
       ),
     );
   }
@@ -106,15 +108,25 @@ class _InfoTile extends StatelessWidget {
   final String label;
   final String value;
 
-  const _InfoTile({required this.icon, required this.label, required this.value});
+  const _InfoTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Card(
       child: ListTile(
         leading: Icon(icon, color: WaslColors.navy),
-        title: Text(label, style: const TextStyle(fontSize: 13, color: WaslColors.textSecondary)),
-        subtitle: Text(value, style: const TextStyle(fontSize: 16, color: WaslColors.textPrimary)),
+        title: Text(
+          label,
+          style: const TextStyle(fontSize: 13, color: WaslColors.textSecondary),
+        ),
+        subtitle: Text(
+          value,
+          style: const TextStyle(fontSize: 16, color: WaslColors.textPrimary),
+        ),
       ),
     );
   }

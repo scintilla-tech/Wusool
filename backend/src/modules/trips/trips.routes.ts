@@ -5,6 +5,7 @@ import { createScopedRouter, type ScopeDeps } from '../../middlewares/scope';
 import { AppError } from '../../utils/appError';
 import { TripService } from './trips.service';
 import { tripCreateSchema } from './trips.schemas';
+import type { TripService as TripServiceType } from './trips.service';
 
 function tenantOf(req: import('express').Request): string {
   const tenantId = req.auth?.tenantId;
@@ -13,9 +14,9 @@ function tenantOf(req: import('express').Request): string {
 }
 
 /** Admin-facing trip management. */
-export function createTripsRouter(deps: ScopeDeps): Router {
+export function createTripsRouter(deps: ScopeDeps & { tripService?: TripServiceType }): Router {
   const router = createScopedRouter(deps, ['UNIVERSITY_ADMIN']);
-  const service = new TripService(deps.prisma);
+  const service = deps.tripService ?? new TripService(deps.prisma);
 
   router.get(
     '/',

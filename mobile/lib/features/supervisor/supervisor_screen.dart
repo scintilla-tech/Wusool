@@ -28,7 +28,9 @@ class SupervisorScreen extends ConsumerWidget {
       ),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('تعذر تحميل الحافلات\n$e', textAlign: TextAlign.center)),
+        error: (e, _) => Center(
+          child: Text('تعذر تحميل الحافلات\n$e', textAlign: TextAlign.center),
+        ),
         data: (buses) {
           if (buses.isEmpty) {
             return const Center(child: Text('لا توجد حافلات مسندة إليك'));
@@ -73,18 +75,28 @@ class _BusCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     bus.name ?? bus.plateNumber,
-                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: statusColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
                     _tripLabel(bus.tripStatus),
-                    style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      color: statusColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
@@ -98,11 +110,54 @@ class _BusCard extends StatelessWidget {
               const SizedBox(height: 14),
               Row(
                 children: [
-                  _Count(label: 'إجمالي', value: bus.total, color: WaslColors.navy),
-                  _Count(label: 'صعدن', value: bus.boarded, color: WaslColors.success),
-                  _Count(label: 'متأخرات', value: bus.notReady, color: WaslColors.warning),
-                  _Count(label: 'لم يحضرن', value: bus.missed, color: WaslColors.danger),
+                  _Count(
+                    label: 'إجمالي',
+                    value: bus.total,
+                    color: WaslColors.navy,
+                  ),
+                  _Count(
+                    label: 'صعدن',
+                    value: bus.boarded,
+                    color: WaslColors.success,
+                  ),
+                  _Count(
+                    label: 'متأخرات',
+                    value: bus.notReady,
+                    color: WaslColors.warning,
+                  ),
+                  _Count(
+                    label: 'لم يحضرن',
+                    value: bus.missed,
+                    color: WaslColors.danger,
+                  ),
                 ],
+              ),
+              const Divider(height: 24),
+              ...bus.attendanceSessions.map(
+                (session) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          session.direction == 'OUTBOUND'
+                              ? 'تحضير الذهاب'
+                              : 'تحضير العودة',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      Text(
+                        '${session.attending} حاضرة • ${session.absent} غائبة • ${session.unregistered} معلقة',
+                      ),
+                      const SizedBox(width: 8),
+                      Chip(
+                        label: Text(
+                          session.status == 'CLOSED' ? 'مغلق' : 'مفتوح',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ],
@@ -133,8 +188,21 @@ class _Count extends StatelessWidget {
     return Expanded(
       child: Column(
         children: [
-          Text('$value', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: color)),
-          Text(label, style: const TextStyle(fontSize: 12, color: WaslColors.textSecondary)),
+          Text(
+            '$value',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              color: WaslColors.textSecondary,
+            ),
+          ),
         ],
       ),
     );

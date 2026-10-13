@@ -6,3 +6,10 @@ coverage/
 !.env.example
 *.log
 .DS_Store
+docs/
+*.dump
+*.sqlite
+*.sqlite3
+*.db
+*.bak
+recordings/

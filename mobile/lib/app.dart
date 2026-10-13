@@ -32,9 +32,7 @@ class WaslApp extends ConsumerWidget {
   Widget _buildHome(AuthState auth) {
     switch (auth.status) {
       case AuthStatus.initializing:
-        return const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        );
+        return const Scaffold(body: Center(child: CircularProgressIndicator()));
       case AuthStatus.authenticated:
         return const HomeScreen();
       case AuthStatus.unauthenticated:

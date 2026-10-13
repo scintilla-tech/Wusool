@@ -2,25 +2,25 @@
 
 > ## ⚠️ DEVELOPMENT / DEMO ONLY — NEVER USE IN PRODUCTION
 >
-> These are **fictional test identities**. The shared password is intentionally weak and
-> must never be used for real users, staging, or production. They exist only to exercise
-> RBAC and object-level authorization against a local development database.
+> These are **fictional test identities**. Their passwords are kept only in the ignored
+> `backend/.env.demo.local` file and must never be reused for real accounts.
 
 ## Seeding
 
 ```powershell
-cd backend
-$env:DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/wasl?schema=public"
+Set-Location backend
+Get-Content .env.local.e2e | ForEach-Object { if ($_ -match '^[A-Z_]+=') { $name, $value = $_ -split '=', 2; Set-Item -Path "Env:$name" -Value $value } }
 npm run prisma:seed
 ```
 
 The seed is **idempotent** (deterministic ids + upserts): re-running it never creates
-duplicates and never weakens authentication. Passwords are stored only as Argon2id hashes
-(the real `hashPassword` implementation) — never plaintext.
+duplicates. The script refuses staging/production, requires an explicit local-development
+opt-in, and refuses non-loopback database hosts. Passwords are loaded from the ignored local
+file and persisted only as Argon2id hashes.
 
 ## Accounts
 
-All accounts use the password **`WaslDemo@2026`**.
+Use `DEMO_PASSWORD` from `backend/.env.demo.local` for these accounts.
 
 | # | Role | Name | Phone (login) | Tenant | Profile / IDs |
 | - | ---- | ---- | ------------- | ------ | ------------- |
@@ -42,7 +42,7 @@ Tenant code for the five university-scoped accounts: **`KSU`**.
 1. Start the backend: `cd backend; npm run dev` (http://localhost:3100).
 2. Run the app: `cd mobile; ..\tools\flutter.ps1 run -d chrome`.
 3. On the login screen:
-   - **University roles:** enter `رمز الجامعة` = `KSU`, the phone, and `WaslDemo@2026`.
+   - **University roles:** enter `رمز الجامعة` = `KSU`, the phone, and `DEMO_PASSWORD` from the ignored file.
    - **Platform super admin:** leave `رمز الجامعة` **blank**, enter `+966500000106` and the password.
 
 The app routes each role to its own experience: student shell, driver screen, supervisor

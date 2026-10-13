@@ -17,8 +17,16 @@ export function createAuthController(service: AuthService) {
   });
 
   const logout: RequestHandler = asyncHandler(async (req, res) => {
-    const { refreshToken } = req.body;
-    await service.logout(refreshToken);
+    const { refreshToken, deviceId } = req.body;
+    await service.logout(refreshToken, deviceId);
+    res.status(200).json({ success: true, data: {} });
+  });
+
+  const logoutAll: RequestHandler = asyncHandler(async (req, res) => {
+    if (!req.auth) {
+      throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+    }
+    await service.logoutAll(req.auth.userId);
     res.status(200).json({ success: true, data: {} });
   });
 
@@ -30,5 +38,5 @@ export function createAuthController(service: AuthService) {
     res.status(200).json({ success: true, data: user });
   });
 
-  return { login, refresh, logout, me };
+  return { login, refresh, logout, logoutAll, me };
 }

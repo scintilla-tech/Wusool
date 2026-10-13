@@ -20,19 +20,26 @@ const mockUser = {
   email: null,
   phone: '+966551234567',
   isActive: true,
+  tenant: { isActive: true },
 };
 
 function makePrisma(overrides: Record<string, unknown> = {}) {
+  const refreshSession = {
+    findUnique: vi.fn().mockResolvedValue(null),
+    create: vi.fn().mockImplementation(async (args: { data: unknown }) => args.data),
+    update: vi.fn().mockImplementation(async (args: { data: unknown }) => args.data),
+    updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+  };
+  const deviceToken = { updateMany: vi.fn().mockResolvedValue({ count: 1 }) };
   return {
     tenant: { findUnique: vi.fn().mockResolvedValue({ id: 't1', code: 'KSU', isActive: true }) },
     user: { findUnique: vi.fn().mockResolvedValue(mockUser) },
-    refreshSession: {
-      findUnique: vi.fn().mockResolvedValue(null),
-      create: vi.fn().mockImplementation(async (args: { data: unknown }) => args.data),
-      update: vi.fn().mockImplementation(async (args: { data: unknown }) => args.data),
-      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
-    },
-    $transaction: vi.fn(async (ops: unknown[]) => Promise.all(ops)),
+    refreshSession,
+    deviceToken,
+    $transaction: vi.fn(async (input: unknown) => {
+      if (typeof input === 'function') return input({ refreshSession });
+      return Promise.all(input as unknown[]);
+    }),
     ...overrides,
   };
 }
@@ -163,9 +170,53 @@ describe('auth routes', () => {
       const res = await request(app).get('/api/v1/auth/me').set('Authorization', `Bearer ${token}`);
       expect(res.status).toBe(401);
     });
+
+    it('returns 401 when the authenticated user tenant has been disabled', async () => {
+      const prisma = makePrisma();
+      prisma.user.findUnique.mockResolvedValue({
+        ...mockUser,
+        tenant: { isActive: false },
+      });
+      const app = await buildApp(prisma);
+      const token = signAccessToken(
+        { sub: 'u1', type: 'access' },
+        testEnv.JWT_ACCESS_SECRET,
+        '15m',
+      );
+
+      const res = await request(app).get('/api/v1/auth/me').set('Authorization', `Bearer ${token}`);
+      expect(res.status).toBe(401);
+    });
   });
 
   describe('POST /auth/refresh', () => {
+    it('rejects and revokes sessions when the tenant has been disabled', async () => {
+      const prisma = makePrisma();
+      prisma.refreshSession.findUnique.mockResolvedValue({
+        id: 's1',
+        userId: 'u1',
+        tokenHash: 'hash',
+        expiresAt: new Date(Date.now() + 60_000),
+        revokedAt: null,
+      });
+      prisma.user.findUnique.mockResolvedValue({
+        ...mockUser,
+        tenant: { isActive: false },
+      });
+
+      const app = await buildApp(prisma);
+      const response = await request(app)
+        .post('/api/v1/auth/refresh')
+        .send({ refreshToken: 'a'.repeat(64) });
+
+      expect(response.status).toBe(401);
+      expect(response.body.error.code).toBe('INVALID_REFRESH_TOKEN');
+      expect(prisma.refreshSession.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'u1', revokedAt: null },
+        data: { revokedAt: expect.any(Date) },
+      });
+    });
+
     const refreshToken = 'refresh-token-value-123456';
 
     it('rotates the refresh session and returns new tokens', async () => {
@@ -269,6 +320,61 @@ describe('auth routes', () => {
         .post('/api/v1/auth/logout')
         .send({ refreshToken: 'refresh-token-value-123456' });
       expect(res.status).toBe(200);
+    });
+
+    it('atomically revokes the session and current installation push token', async () => {
+      const prisma = makePrisma();
+      prisma.refreshSession.findUnique.mockResolvedValue({
+        id: 's1',
+        userId: 'u1',
+        tokenHash: 'hash',
+        expiresAt: new Date(Date.now() + 86_400_000),
+        revokedAt: null,
+      });
+
+      const app = await buildApp(prisma);
+      const res = await request(app).post('/api/v1/auth/logout').send({
+        refreshToken: 'refresh-token-value-123456',
+        deviceId: 'phone-1',
+      });
+
+      expect(res.status).toBe(200);
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(prisma.deviceToken.updateMany).toHaveBeenCalledWith({
+        where: {
+          userId: 'u1',
+          isActive: true,
+          OR: [{ deviceId: 'phone-1' }, { deviceId: null }],
+        },
+        data: { isActive: false },
+      });
+    });
+  });
+
+  describe('POST /auth/logout-all', () => {
+    it('requires authentication', async () => {
+      const app = await buildApp(makePrisma());
+      const res = await request(app).post('/api/v1/auth/logout-all');
+      expect(res.status).toBe(401);
+    });
+
+    it('revokes every active refresh session for the authenticated user', async () => {
+      const prisma = makePrisma();
+      const app = await buildApp(prisma);
+      const token = signAccessToken(
+        { sub: 'u1', type: 'access' },
+        testEnv.JWT_ACCESS_SECRET,
+        '15m',
+      );
+      const res = await request(app)
+        .post('/api/v1/auth/logout-all')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      expect(prisma.refreshSession.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'u1', revokedAt: null },
+        data: { revokedAt: expect.any(Date) },
+      });
     });
   });
 });

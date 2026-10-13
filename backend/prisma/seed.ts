@@ -1,25 +1,40 @@
 /**
  * DEVELOPMENT-ONLY demo seed. Creates realistic fictional data for the WASL MVP
- * demo. No real personal information. Run with: DATABASE_URL=... npm run prisma:seed
- *
- * Persistent per-role demo identities (all password `WaslDemo@2026`) are documented
- * in docs/DEMO_ACCOUNTS.md. They are fictional test accounts and must never exist
- * in production.
- *
- * Legacy demo credentials (all passwords fictional):
- *   Admin:       phone +966501111111  password AdminPass#1
- *   Driver 1:    phone +966550000001  password DriverPass#1
- *   Driver 2:    phone +966550000002  password DriverPass#2
- *   Supervisor:  phone +966550000003  password SuperPass#1
- *   Students:    phone +9665510000NN  password Student#123  (NN = 01..08)
+ * demo. No real personal information. It requires an explicit opt-in, local
+ * database URL, and credentials from ignored local environment files.
  */
 import { PrismaClient, type Role } from '@prisma/client';
+import { config as loadDotenv } from 'dotenv';
+import { todayDate } from '../src/utils/date';
 import { hashPassword } from '../src/utils/password';
+
+loadDotenv({ path: '.env.demo.local', override: false });
+loadDotenv({ path: '.env.attendance-demo.local', override: false });
+
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing required local demo setting: ${name}`);
+  return value;
+}
+
+const nodeEnv = process.env.NODE_ENV;
+if (!['development', 'test'].includes(nodeEnv ?? '') || process.env.ALLOW_DEMO_SEED !== 'true') {
+  throw new Error('Demo seed refused: require NODE_ENV=development|test and ALLOW_DEMO_SEED=true');
+}
+
+const databaseUrl = required('DATABASE_URL');
+const databaseHost = new URL(databaseUrl).hostname;
+if (!['127.0.0.1', 'localhost', '::1'].includes(databaseHost)) {
+  throw new Error(`Demo seed refused for non-local database host: ${databaseHost}`);
+}
 
 const prisma = new PrismaClient();
 
-/** Single development-only password for the persistent demo identities. */
-const DEMO_PASSWORD = 'WaslDemo@2026';
+const DEMO_PASSWORD = process.env.ATTENDANCE_DEMO_PASSWORD ?? required('DEMO_PASSWORD');
+const LEGACY_ADMIN_PASSWORD = required('LEGACY_ADMIN_PASSWORD');
+const LEGACY_DRIVER_PASSWORD = required('LEGACY_DRIVER_PASSWORD');
+const LEGACY_SUPERVISOR_PASSWORD = required('LEGACY_SUPERVISOR_PASSWORD');
+const LEGACY_STUDENT_PASSWORD = required('LEGACY_STUDENT_PASSWORD');
 
 async function upsertTenant() {
   return prisma.tenant.upsert({
@@ -79,6 +94,48 @@ async function upsertDemoUser(
     isActive: true,
   };
   return prisma.user.upsert({ where: { id }, update: base, create: { id, ...base } });
+}
+
+async function upsertDemoAttendance(
+  tenantId: string,
+  routeId: string,
+  studentProfileId: string,
+  actorUserId: string,
+  operationalDate: Date,
+  direction: 'OUTBOUND' | 'RETURN' = 'OUTBOUND',
+) {
+  const session = await prisma.attendanceSession.upsert({
+    where: {
+      tenantId_routeId_operationalDate_direction: {
+        tenantId,
+        routeId,
+        operationalDate,
+        direction,
+      },
+    },
+    update: {},
+    create: { tenantId, routeId, operationalDate, direction },
+  });
+  return prisma.attendanceIntent.upsert({
+    where: {
+      attendanceSessionId_studentProfileId: {
+        attendanceSessionId: session.id,
+        studentProfileId,
+      },
+    },
+    update: { intent: 'ATTENDING', actorUserId, actorRole: 'STUDENT' },
+    create: {
+      tenantId,
+      attendanceSessionId: session.id,
+      studentProfileId,
+      operationalDate,
+      direction,
+      intent: 'ATTENDING',
+      source: 'STUDENT_SELF_REGISTRATION',
+      actorUserId,
+      actorRole: 'STUDENT',
+    },
+  });
 }
 
 async function main(): Promise<void> {
@@ -164,7 +221,7 @@ async function main(): Promise<void> {
     firstName: 'Admin',
     lastName: 'KSU',
     phone: '+966501111111',
-    password: 'AdminPass#1',
+    password: LEGACY_ADMIN_PASSWORD,
   });
 
   const driver1User = await upsertUser(t, {
@@ -172,21 +229,21 @@ async function main(): Promise<void> {
     firstName: 'Khalid',
     lastName: 'Ali',
     phone: '+966550000001',
-    password: 'DriverPass#1',
+    password: LEGACY_DRIVER_PASSWORD,
   });
   const driver2User = await upsertUser(t, {
     role: 'DRIVER',
     firstName: 'Omar',
     lastName: 'Salem',
     phone: '+966550000002',
-    password: 'DriverPass#2',
+    password: LEGACY_DRIVER_PASSWORD,
   });
   const supUser = await upsertUser(t, {
     role: 'SUPERVISOR',
     firstName: 'Noura',
     lastName: 'Fahad',
     phone: '+966550000003',
-    password: 'SuperPass#1',
+    password: LEGACY_SUPERVISOR_PASSWORD,
   });
 
   const driver1 = await prisma.driverProfile.upsert({
@@ -228,8 +285,7 @@ async function main(): Promise<void> {
 
   // Students
   const studentNames = ['Sara', 'Layla', 'Hessa', 'Abeer', 'Reem', 'Nada', 'Dana', 'Lina'];
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = todayDate();
   await prisma.studentAssignment.updateMany({ where: { tenantId: t }, data: { isActive: false } });
 
   for (const [i, first] of studentNames.entries()) {
@@ -239,7 +295,7 @@ async function main(): Promise<void> {
       firstName: first,
       lastName: 'Mohammed',
       phone,
-      password: 'Student#123',
+      password: LEGACY_STUDENT_PASSWORD,
     });
     const profile = await prisma.studentProfile.upsert({
       where: { userId: user.id },
@@ -256,11 +312,7 @@ async function main(): Promise<void> {
     await prisma.studentAssignment.create({
       data: { tenantId: t, studentProfileId: profile.id, routeId: route, isActive: true },
     });
-    await prisma.attendanceIntent.upsert({
-      where: { studentProfileId_tripDate: { studentProfileId: profile.id, tripDate: today } },
-      update: { intent: 'ATTENDING' },
-      create: { tenantId: t, studentProfileId: profile.id, tripDate: today, intent: 'ATTENDING' },
-    });
+    await upsertDemoAttendance(t, route, profile.id, user.id, today);
   }
 
   // ---------------------------------------------------------------------------
@@ -305,18 +357,7 @@ async function main(): Promise<void> {
       isActive: true,
     },
   });
-  await prisma.attendanceIntent.upsert({
-    where: {
-      studentProfileId_tripDate: { studentProfileId: demoStudentProfile.id, tripDate: today },
-    },
-    update: { intent: 'ATTENDING' },
-    create: {
-      tenantId: t,
-      studentProfileId: demoStudentProfile.id,
-      tripDate: today,
-      intent: 'ATTENDING',
-    },
-  });
+  await upsertDemoAttendance(t, route1.id, demoStudentProfile.id, demoStudentUser.id, today);
 
   // 2. Driver (active driver of demo bus KSU-1003)
   const demoDriverUser = await upsertDemoUser('demo-user-driver-nejood', {
@@ -425,7 +466,13 @@ async function main(): Promise<void> {
   // Today's trip for the demo driver's bus/route so driver + student flows are testable.
   const demoTrip = await prisma.dailyTrip.upsert({
     where: { id: 'demo-trip-nejood' },
-    update: { tripDate: today, status: 'SCHEDULED' },
+    update: {
+      tripDate: today,
+      direction: 'OUTBOUND',
+      status: 'SCHEDULED',
+      startedAt: null,
+      completedAt: null,
+    },
     create: {
       id: 'demo-trip-nejood',
       tenantId: t,
@@ -433,7 +480,81 @@ async function main(): Promise<void> {
       busId: busIds['KSU-1003'],
       driverProfileId: demoDriverProfile.id,
       tripDate: today,
+      direction: 'OUTBOUND',
       status: 'SCHEDULED',
+    },
+  });
+  await prisma.attendanceSession.updateMany({
+    where: {
+      dailyTripId: demoTrip.id,
+      NOT: { operationalDate: today, direction: 'OUTBOUND' },
+    },
+    data: { dailyTripId: null },
+  });
+  await prisma.attendanceSession.update({
+    where: {
+      tenantId_routeId_operationalDate_direction: {
+        tenantId: t,
+        routeId: route1.id,
+        operationalDate: today,
+        direction: 'OUTBOUND',
+      },
+    },
+    data: {
+      dailyTripId: demoTrip.id,
+      status: 'OPEN',
+      closedAt: null,
+      closedByDriverProfileId: null,
+    },
+  });
+  const demoReturnTrip = await prisma.dailyTrip.upsert({
+    where: { id: 'demo-trip-return-nejood' },
+    update: {
+      tripDate: today,
+      direction: 'RETURN',
+      status: 'SCHEDULED',
+      startedAt: null,
+      completedAt: null,
+    },
+    create: {
+      id: 'demo-trip-return-nejood',
+      tenantId: t,
+      routeId: route1.id,
+      busId: busIds['KSU-1003'],
+      driverProfileId: demoDriverProfile.id,
+      tripDate: today,
+      direction: 'RETURN',
+      status: 'SCHEDULED',
+    },
+  });
+  await prisma.attendanceSession.updateMany({
+    where: {
+      dailyTripId: demoReturnTrip.id,
+      NOT: { operationalDate: today, direction: 'RETURN' },
+    },
+    data: { dailyTripId: null },
+  });
+  await prisma.attendanceSession.upsert({
+    where: {
+      tenantId_routeId_operationalDate_direction: {
+        tenantId: t,
+        routeId: route1.id,
+        operationalDate: today,
+        direction: 'RETURN',
+      },
+    },
+    update: {
+      dailyTripId: demoReturnTrip.id,
+      status: 'OPEN',
+      closedAt: null,
+      closedByDriverProfileId: null,
+    },
+    create: {
+      tenantId: t,
+      routeId: route1.id,
+      operationalDate: today,
+      direction: 'RETURN',
+      dailyTripId: demoReturnTrip.id,
     },
   });
   const routeAssignments = await prisma.studentAssignment.findMany({
@@ -443,7 +564,8 @@ async function main(): Promise<void> {
   const attending = await prisma.attendanceIntent.findMany({
     where: {
       tenantId: t,
-      tripDate: today,
+      operationalDate: today,
+      direction: 'OUTBOUND',
       intent: 'ATTENDING',
       studentProfileId: { in: routeAssignments.map((a) => a.studentProfileId) },
     },
@@ -457,7 +579,12 @@ async function main(): Promise<void> {
           studentProfileId: intent.studentProfileId,
         },
       },
-      update: {},
+      update: {
+        status: 'WAITING',
+        boardedAt: null,
+        missedAt: null,
+        transportConfirmed: false,
+      },
       create: {
         tenantId: t,
         dailyTripId: demoTrip.id,
@@ -466,21 +593,33 @@ async function main(): Promise<void> {
       },
     });
   }
+  for (const assignment of routeAssignments) {
+    await prisma.tripStudent.upsert({
+      where: {
+        dailyTripId_studentProfileId: {
+          dailyTripId: demoReturnTrip.id,
+          studentProfileId: assignment.studentProfileId,
+        },
+      },
+      update: { status: 'WAITING', boardedAt: null, missedAt: null, transportConfirmed: false },
+      create: {
+        tenantId: t,
+        dailyTripId: demoReturnTrip.id,
+        studentProfileId: assignment.studentProfileId,
+        status: 'WAITING',
+      },
+    });
+  }
 
   console.log('Demo seed complete.');
-  console.log('Persistent per-role demo identities (password WaslDemo@2026, tenant KSU):');
+  console.log('Persistent per-role demo identities created for tenant KSU.');
   console.log('  STUDENT            +966500000101  (university id 440000001)');
   console.log('  DRIVER             +966500000102  (employee DRV-NEJOOD-01)');
   console.log('  SUPERVISOR         +966500000103  (employee SUP-NEJOOD-01)');
   console.log('  FIELD_SUPERVISOR   +966500000104  (employee FSUP-NEJOOD-01)');
   console.log('  UNIVERSITY_ADMIN   +966500000105  (employee ADMIN-NEJOOD-01)');
   console.log('  PLATFORM_SUPER_ADMIN +966500000106 (tenantId = null)');
-  console.log('Legacy demo credentials:');
-  console.log('  Admin      +966501111111 / AdminPass#1');
-  console.log('  Driver 1   +966550000001 / DriverPass#1');
-  console.log('  Driver 2   +966550000002 / DriverPass#2');
-  console.log('  Supervisor +966550000003 / SuperPass#1');
-  console.log('  Students   +9665510000NN / Student#123');
+  console.log('Passwords remain only in the ignored local demo credential file.');
 
   await prisma.$disconnect();
 }

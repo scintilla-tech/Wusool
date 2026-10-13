@@ -6,7 +6,7 @@ import { createAuthenticate } from '../../middlewares/authenticate';
 import { createRateLimiter, loginKeyGenerator } from '../../middlewares/rateLimit';
 import { AuthService } from './auth.service';
 import { createAuthController } from './auth.controller';
-import { loginSchema, refreshSchema } from './auth.schemas';
+import { loginSchema, logoutSchema, refreshSchema } from './auth.schemas';
 
 export interface AuthRouterDeps {
   prisma: PrismaClient;
@@ -34,7 +34,8 @@ export function createAuthRouter({ prisma, config }: AuthRouterDeps): Router {
 
   router.post('/login', loginLimiter, validate({ body: loginSchema }), controller.login);
   router.post('/refresh', refreshLimiter, validate({ body: refreshSchema }), controller.refresh);
-  router.post('/logout', logoutLimiter, validate({ body: refreshSchema }), controller.logout);
+  router.post('/logout', logoutLimiter, validate({ body: logoutSchema }), controller.logout);
+  router.post('/logout-all', authenticate, controller.logoutAll);
   router.get('/me', authenticate, controller.me);
 
   return router;

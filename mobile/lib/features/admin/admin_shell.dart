@@ -44,7 +44,10 @@ class _AdminShellBodyState extends State<_AdminShellBody> {
         destinations: const [
           NavigationDestination(icon: Icon(Icons.dashboard), label: 'الرئيسية'),
           NavigationDestination(icon: Icon(Icons.school), label: 'الطالبات'),
-          NavigationDestination(icon: Icon(Icons.directions_bus), label: 'الحافلات'),
+          NavigationDestination(
+            icon: Icon(Icons.directions_bus),
+            label: 'الحافلات',
+          ),
           NavigationDestination(icon: Icon(Icons.logout), label: 'خروج'),
         ],
       ),

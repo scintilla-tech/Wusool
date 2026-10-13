@@ -14,10 +14,23 @@ import { PrismaClient } from '@prisma/client';
 const REQUIRED_PARTIAL_INDEXES = [
   'StudentAssignment_tenantId_studentProfileId_active_key',
   'DriverAssignment_tenantId_busId_active_key',
+  'DriverAssignment_tenantId_driverProfileId_active_key',
   'SupervisorBusAssignment_tenantId_busId_active_key',
+  'DailyTrip_tenantId_busId_tripDate_direction_active_key',
+  'DailyTrip_driver_direction_active_key',
+  'DailyTrip_tenantId_busId_in_progress_key',
+  'DailyTrip_tenantId_driverProfileId_in_progress_key',
 ];
 
-const REQUIRED_CHECK_CONSTRAINTS = ['User_role_tenant_check'];
+const REQUIRED_UNIQUE_INDEXES = ['DeviceToken_token_key'];
+
+const REQUIRED_CHECK_CONSTRAINTS = [
+  'User_role_tenant_check',
+  'AttendanceSession_closure_consistency',
+  'AttendanceIntent_expectedFinishMinutes_check',
+  'AttendanceIntent_finish_time_outbound_only',
+  'AttendanceAudit_expectedFinishMinutes_check',
+];
 
 async function main(): Promise<void> {
   const prisma = new PrismaClient();
@@ -32,6 +45,16 @@ async function main(): Promise<void> {
       }
     }
 
+    const allIndexes = await prisma.$queryRaw<Array<{ indexname: string }>>`
+      SELECT indexname FROM pg_indexes
+    `;
+    const allIndexNames = new Set(allIndexes.map((row) => row.indexname));
+    for (const name of REQUIRED_UNIQUE_INDEXES) {
+      if (!allIndexNames.has(name)) {
+        throw new Error(`Missing unique index: ${name}`);
+      }
+    }
+
     const constraints = await prisma.$queryRaw<Array<{ conname: string }>>`
       SELECT conname FROM pg_constraint WHERE contype = 'c'
     `;
@@ -43,7 +66,7 @@ async function main(): Promise<void> {
     }
 
     console.log(
-      `Verified ${REQUIRED_PARTIAL_INDEXES.length} partial indexes and ${REQUIRED_CHECK_CONSTRAINTS.length} CHECK constraint(s).`,
+      `Verified ${REQUIRED_PARTIAL_INDEXES.length} partial indexes, ${REQUIRED_UNIQUE_INDEXES.length} unique index(es), and ${REQUIRED_CHECK_CONSTRAINTS.length} CHECK constraint(s).`,
     );
   } finally {
     await prisma.$disconnect();

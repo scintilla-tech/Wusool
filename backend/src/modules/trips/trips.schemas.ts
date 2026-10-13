@@ -7,6 +7,7 @@ export const tripCreateSchema = z
     busId: idSchema,
     driverProfileId: idSchema,
     tripDate: isoDateSchema,
+    direction: z.enum(['OUTBOUND', 'RETURN']).optional(),
   })
   .strict();
 

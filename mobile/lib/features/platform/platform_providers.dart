@@ -21,7 +21,8 @@ class PlatformTenant {
 
   factory PlatformTenant.fromJson(Map<String, dynamic> json) {
     final counts = json['_count'];
-    int c(String k) => (counts is Map ? (counts[k] as num?)?.toInt() : null) ?? 0;
+    int c(String k) =>
+        (counts is Map ? (counts[k] as num?)?.toInt() : null) ?? 0;
     return PlatformTenant(
       id: json['id'] as String? ?? '',
       code: json['code'] as String? ?? '',
@@ -33,10 +34,14 @@ class PlatformTenant {
   }
 }
 
-final platformTenantsProvider = FutureProvider.autoDispose<List<PlatformTenant>>((ref) async {
-  final api = ref.watch(apiClientProvider);
-  final res = await api.dio.get<Map<String, dynamic>>('/platform/tenants');
-  final data = res.data?['data'];
-  if (data is! List) return const [];
-  return data.whereType<Map>().map((e) => PlatformTenant.fromJson(e.cast<String, dynamic>())).toList();
-});
+final platformTenantsProvider =
+    FutureProvider.autoDispose<List<PlatformTenant>>((ref) async {
+      final api = ref.watch(apiClientProvider);
+      final res = await api.dio.get<Map<String, dynamic>>('/platform/tenants');
+      final data = res.data?['data'];
+      if (data is! List) return const [];
+      return data
+          .whereType<Map>()
+          .map((e) => PlatformTenant.fromJson(e.cast<String, dynamic>()))
+          .toList();
+    });

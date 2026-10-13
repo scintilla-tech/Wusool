@@ -1,38 +1,50 @@
-import type { Prisma, PrismaClient } from '@prisma/client';
+import type { PrismaClient } from '@prisma/client';
 import { AppError } from '../../utils/appError';
+import { dateOnly } from '../../utils/date';
 import type { TripCreateInput } from './trips.schemas';
-
-function dateOnly(d: Date): Date {
-  const copy = new Date(d);
-  copy.setHours(0, 0, 0, 0);
-  return copy;
-}
+import type { TripEventBus } from './trip-events';
 
 export class TripService {
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly events?: TripEventBus,
+  ) {}
 
   // ----- Admin: create a daily trip and populate its student list -----
   async createTrip(tenantId: string, input: TripCreateInput) {
+    const direction = input.direction ?? 'OUTBOUND';
     await this.assertRoute(tenantId, input.routeId);
     await this.assertBus(tenantId, input.busId);
     await this.assertDriverProfile(tenantId, input.driverProfileId);
+    await this.assertDriverAssignedToBus(tenantId, input.driverProfileId, input.busId);
 
     const tripDate = dateOnly(input.tripDate);
 
-    // Students assigned to this route with an ATTENDING intent for the day.
+    const conflict = await this.prisma.dailyTrip.findFirst({
+      where: {
+        tenantId,
+        tripDate,
+        status: { in: ['SCHEDULED', 'IN_PROGRESS'] },
+        direction,
+        OR: [{ busId: input.busId }, { driverProfileId: input.driverProfileId }],
+      },
+      select: { id: true },
+    });
+    if (conflict) {
+      throw new AppError(
+        409,
+        'TRIP_CONFLICT',
+        'The bus or driver already has an active trip for this date',
+      );
+    }
+
+    // Keep the complete assigned roster. Attendance intent is independent and
+    // may be supplied by the student or assisted by the driver until closure.
     const assignments = await this.prisma.studentAssignment.findMany({
       where: { tenantId, routeId: input.routeId, isActive: true },
       select: { studentProfileId: true },
     });
     const profileIds = assignments.map((a) => a.studentProfileId);
-
-    const intents = profileIds.length
-      ? await this.prisma.attendanceIntent.findMany({
-          where: { tenantId, tripDate, intent: 'ATTENDING', studentProfileId: { in: profileIds } },
-          select: { studentProfileId: true },
-        })
-      : [];
-    const attendingIds = intents.map((i) => i.studentProfileId);
 
     return this.prisma.$transaction(async (tx) => {
       const trip = await tx.dailyTrip.create({
@@ -42,12 +54,31 @@ export class TripService {
           busId: input.busId,
           driverProfileId: input.driverProfileId,
           tripDate,
+          direction,
           status: 'SCHEDULED',
         },
       });
-      if (attendingIds.length > 0) {
+      await tx.attendanceSession.upsert({
+        where: {
+          tenantId_routeId_operationalDate_direction: {
+            tenantId,
+            routeId: input.routeId,
+            operationalDate: tripDate,
+            direction,
+          },
+        },
+        update: { dailyTripId: trip.id },
+        create: {
+          tenantId,
+          routeId: input.routeId,
+          operationalDate: tripDate,
+          direction,
+          dailyTripId: trip.id,
+        },
+      });
+      if (profileIds.length > 0) {
         await tx.tripStudent.createMany({
-          data: attendingIds.map((studentProfileId) => ({
+          data: profileIds.map((studentProfileId) => ({
             tenantId,
             dailyTripId: trip.id,
             studentProfileId,
@@ -73,9 +104,14 @@ export class TripService {
 
   // ----- Driver: today's trip -----
   async getDriverToday(tenantId: string, driverUserId: string) {
+    const trips = await this.getDriverTodayTrips(tenantId, driverUserId);
+    return trips[0] ?? null;
+  }
+
+  async getDriverTodayTrips(tenantId: string, driverUserId: string) {
     const profile = await this.resolveDriverProfile(tenantId, driverUserId);
     const today = dateOnly(new Date());
-    const trip = await this.prisma.dailyTrip.findFirst({
+    return this.prisma.dailyTrip.findMany({
       where: {
         tenantId,
         driverProfileId: profile.id,
@@ -107,9 +143,21 @@ export class TripService {
           },
           orderBy: { createdAt: 'asc' },
         },
+        attendanceSession: {
+          include: {
+            attendanceIntents: {
+              select: {
+                studentProfileId: true,
+                intent: true,
+                source: true,
+                expectedFinishMinutes: true,
+              },
+            },
+          },
+        },
       },
+      orderBy: { direction: 'asc' },
     });
-    return trip;
   }
 
   async startTrip(tenantId: string, driverUserId: string, tripId: string) {
@@ -117,12 +165,38 @@ export class TripService {
     if (trip.status !== 'SCHEDULED') {
       throw new AppError(409, 'INVALID_STATE', 'Trip is not in SCHEDULED state');
     }
-    const updated = await this.prisma.dailyTrip.update({
-      where: { id: tripId },
-      data: { status: 'IN_PROGRESS', startedAt: new Date() },
+    const today = dateOnly(new Date());
+    if (dateOnly(trip.tripDate).getTime() !== today.getTime()) {
+      throw new AppError(409, 'INVALID_STATE', "Only today's trip can be started");
+    }
+    const changed = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.dailyTrip.updateMany({
+        where: {
+          id: tripId,
+          tenantId,
+          driverProfileId: trip.driverProfileId,
+          status: 'SCHEDULED',
+          tripDate: today,
+        },
+        data: { status: 'IN_PROGRESS', startedAt: new Date() },
+      });
+      if (result.count === 1) {
+        await tx.auditLog.create({
+          data: {
+            tenantId,
+            actorUserId: driverUserId,
+            action: 'TRIP_STARTED',
+            entityType: 'DailyTrip',
+            entityId: tripId,
+          },
+        });
+      }
+      return result;
     });
-    await this.audit(tenantId, driverUserId, 'TRIP_STARTED', 'DailyTrip', tripId);
-    return updated;
+    if (changed.count !== 1) {
+      throw new AppError(409, 'INVALID_STATE', 'Trip is not in SCHEDULED state');
+    }
+    return this.prisma.dailyTrip.findUniqueOrThrow({ where: { id: tripId } });
   }
 
   async setStudentStatus(
@@ -132,18 +206,30 @@ export class TripService {
     studentProfileId: string,
     status: 'WAITING' | 'BOARDED' | 'NOT_READY' | 'MISSED',
   ) {
-    const trip = await this.assertTripForDriver(tenantId, driverUserId, tripId);
-    if (trip.status !== 'IN_PROGRESS') {
-      throw new AppError(409, 'INVALID_STATE', 'Trip is not in progress');
-    }
+    const profile = await this.resolveDriverProfile(tenantId, driverUserId);
     const now = new Date();
-    return this.prisma.tripStudent.update({
-      where: { dailyTripId_studentProfileId: { dailyTripId: tripId, studentProfileId } },
+    const changed = await this.prisma.tripStudent.updateMany({
+      where: {
+        dailyTripId: tripId,
+        studentProfileId,
+        dailyTrip: {
+          tenantId,
+          driverProfileId: profile.id,
+          status: 'IN_PROGRESS',
+        },
+      },
       data: {
         status,
-        boardedAt: status === 'BOARDED' ? now : undefined,
-        missedAt: status === 'MISSED' ? now : undefined,
+        boardedAt: status === 'BOARDED' ? now : null,
+        missedAt: status === 'MISSED' ? now : null,
+        transportConfirmed: false,
       },
+    });
+    if (changed.count !== 1) {
+      throw new AppError(409, 'INVALID_STATE', 'Trip is not in progress');
+    }
+    return this.prisma.tripStudent.findUniqueOrThrow({
+      where: { dailyTripId_studentProfileId: { dailyTripId: tripId, studentProfileId } },
     });
   }
 
@@ -152,7 +238,10 @@ export class TripService {
     if (trip.status !== 'IN_PROGRESS') {
       throw new AppError(409, 'INVALID_STATE', 'Trip is not in progress');
     }
-    await this.finishTrip(tenantId, tripId, 'TRIP_COMPLETED', actorUserId);
+    const completed = await this.finishTrip(tenantId, tripId, 'TRIP_COMPLETED', actorUserId);
+    if (!completed) {
+      throw new AppError(409, 'INVALID_STATE', 'Trip is not in progress');
+    }
     return this.prisma.dailyTrip.findUnique({ where: { id: tripId } });
   }
 
@@ -160,8 +249,7 @@ export class TripService {
     const trip = await this.prisma.dailyTrip.findFirst({ where: { id: tripId, tenantId } });
     if (!trip) throw new AppError(404, 'NOT_FOUND', 'Trip not found');
     if (trip.status !== 'IN_PROGRESS') return false;
-    await this.finishTrip(tenantId, tripId, 'TRIP_AUTO_COMPLETED_BY_GEOFENCE', null);
-    return true;
+    return this.finishTrip(tenantId, tripId, 'TRIP_AUTO_COMPLETED_BY_GEOFENCE', null);
   }
 
   private async finishTrip(
@@ -169,19 +257,25 @@ export class TripService {
     tripId: string,
     action: string,
     actorUserId: string | null,
-  ): Promise<void> {
-    await this.prisma.$transaction(async (tx) => {
-      await tx.dailyTrip.update({
-        where: { id: tripId },
+  ): Promise<boolean> {
+    const completed = await this.prisma.$transaction(async (tx) => {
+      const changed = await tx.dailyTrip.updateMany({
+        where: { id: tripId, tenantId, status: 'IN_PROGRESS' },
         data: { status: 'COMPLETED', completedAt: new Date() },
       });
+      if (changed.count !== 1) return false;
       // Only BOARDED students become transport-attendance-confirmed.
       await tx.tripStudent.updateMany({
         where: { dailyTripId: tripId, status: 'BOARDED' },
         data: { transportConfirmed: true },
       });
+      await tx.auditLog.create({
+        data: { tenantId, actorUserId, action, entityType: 'DailyTrip', entityId: tripId },
+      });
+      return true;
     });
-    await this.audit(tenantId, actorUserId, action, 'DailyTrip', tripId);
+    if (completed) this.events?.emitCompleted({ tenantId, tripId });
+    return completed;
   }
 
   // ----- Helpers -----
@@ -219,16 +313,17 @@ export class TripService {
     if (!found) throw new AppError(404, 'NOT_FOUND', 'Driver profile not found or inactive');
   }
 
-  private async audit(
+  private async assertDriverAssignedToBus(
     tenantId: string,
-    actorUserId: string | null,
-    action: string,
-    entityType: string,
-    entityId: string,
-    metadata?: Prisma.InputJsonValue,
+    driverProfileId: string,
+    busId: string,
   ) {
-    await this.prisma.auditLog.create({
-      data: { tenantId, actorUserId, action, entityType, entityId, metadata },
+    const found = await this.prisma.driverAssignment.findFirst({
+      where: { tenantId, driverProfileId, busId, isActive: true },
+      select: { id: true },
     });
+    if (!found) {
+      throw new AppError(422, 'DRIVER_BUS_MISMATCH', 'Driver is not actively assigned to this bus');
+    }
   }
 }

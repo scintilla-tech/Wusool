@@ -4,6 +4,7 @@ import jwt, { type SignOptions } from 'jsonwebtoken';
 export interface AccessTokenPayload {
   sub: string;
   type: 'access';
+  exp?: number;
 }
 
 const REFRESH_TOKEN_BYTES = 32;
@@ -35,7 +36,11 @@ export function verifyAccessToken(token: string, secret: string): AccessTokenPay
   if (decoded.type !== 'access' || typeof decoded.sub !== 'string' || decoded.sub.length === 0) {
     throw new Error('Invalid access token claims');
   }
-  return { sub: decoded.sub, type: 'access' };
+  return {
+    sub: decoded.sub,
+    type: 'access',
+    ...(typeof decoded.exp === 'number' ? { exp: decoded.exp } : {}),
+  };
 }
 
 export function generateRefreshToken(): string {

@@ -124,8 +124,15 @@ export class AuthService {
       throw new AppError(401, 'INVALID_REFRESH_TOKEN', 'Invalid refresh token');
     }
 
-    const user = await this.prisma.user.findUnique({ where: { id: session.userId } });
-    if (!user || !user.isActive) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: session.userId },
+      include: { tenant: { select: { isActive: true } } },
+    });
+    if (!user || !user.isActive || (user.tenantId !== null && user.tenant?.isActive !== true)) {
+      await this.prisma.refreshSession.updateMany({
+        where: { userId: session.userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
       throw new AppError(401, 'INVALID_REFRESH_TOKEN', 'Invalid refresh token');
     }
 
@@ -137,40 +144,67 @@ export class AuthService {
     const newRefreshToken = generateRefreshToken();
     const expiresAt = new Date(Date.now() + parseDurationMs(this.config.refreshTtl));
 
-    // Atomic conditional revoke: only one concurrent caller can win the update,
-    // closing the read-then-write TOCTOU race in rotation.
-    const revoke = await this.prisma.refreshSession.updateMany({
-      where: { id: session.id, revokedAt: null },
-      data: { revokedAt: new Date() },
-    });
-
-    if (revoke.count === 0) {
+    try {
+      // Revoke-and-replace is one transaction: a create failure leaves the old
+      // refresh token usable instead of stranding the client between states.
+      await this.prisma.$transaction(async (tx) => {
+        const revoke = await tx.refreshSession.updateMany({
+          where: { id: session.id, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
+        if (revoke.count === 0) {
+          throw new AppError(401, 'REFRESH_TOKEN_REUSED', 'Refresh token reuse detected');
+        }
+        await tx.refreshSession.create({
+          data: {
+            userId: user.id,
+            tokenHash: hashRefreshToken(newRefreshToken),
+            expiresAt,
+          },
+        });
+      });
+    } catch (error) {
+      if (!(error instanceof AppError) || error.code !== 'REFRESH_TOKEN_REUSED') throw error;
       await this.prisma.refreshSession.updateMany({
         where: { userId: session.userId, revokedAt: null },
         data: { revokedAt: new Date() },
       });
-      throw new AppError(401, 'REFRESH_TOKEN_REUSED', 'Refresh token reuse detected');
+      throw error;
     }
-
-    await this.prisma.refreshSession.create({
-      data: {
-        userId: user.id,
-        tokenHash: hashRefreshToken(newRefreshToken),
-        expiresAt,
-      },
-    });
 
     return { accessToken, refreshToken: newRefreshToken };
   }
 
-  async logout(refreshToken: string): Promise<void> {
+  async logout(refreshToken: string, deviceId?: string): Promise<void> {
     const tokenHash = hashRefreshToken(refreshToken);
     const session = await this.prisma.refreshSession.findUnique({ where: { tokenHash } });
     if (!session) {
       return;
     }
-    await this.prisma.refreshSession.update({
+    const revokeSession = this.prisma.refreshSession.update({
       where: { id: session.id },
+      data: { revokedAt: new Date() },
+    });
+    if (!deviceId) {
+      await revokeSession;
+      return;
+    }
+    await this.prisma.$transaction([
+      revokeSession,
+      this.prisma.deviceToken.updateMany({
+        where: {
+          userId: session.userId,
+          isActive: true,
+          OR: [{ deviceId }, { deviceId: null }],
+        },
+        data: { isActive: false },
+      }),
+    ]);
+  }
+
+  async logoutAll(userId: string): Promise<void> {
+    await this.prisma.refreshSession.updateMany({
+      where: { userId, revokedAt: null },
       data: { revokedAt: new Date() },
     });
   }

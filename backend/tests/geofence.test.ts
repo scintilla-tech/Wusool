@@ -29,6 +29,32 @@ describe('geofence (Haversine)', () => {
 });
 
 describe('location service', () => {
+  it('scopes active-trip lookup to today and chooses the most recently started trip', async () => {
+    const findTrip = vi.fn().mockResolvedValue(null);
+    const service = new LocationService(
+      prisma({
+        driverProfile: { findFirst: vi.fn().mockResolvedValue({ id: 'dp1' }) },
+        dailyTrip: { findFirst: findTrip },
+      }),
+      { completeTripByGeofence: vi.fn() } as never,
+    );
+
+    await expect(service.processLocation('t1', 'u1', 24.71, 46.62)).rejects.toThrow(
+      'No active trip',
+    );
+    expect(findTrip).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tenantId: 't1',
+          driverProfileId: 'dp1',
+          status: 'IN_PROGRESS',
+          tripDate: expect.any(Date),
+        }),
+        orderBy: { startedAt: 'desc' },
+      }),
+    );
+  });
+
   it('rejects a location update with no active trip', async () => {
     const service = new LocationService(
       prisma({

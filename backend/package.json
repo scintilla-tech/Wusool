@@ -4,7 +4,7 @@
   "private": true,
   "description": "WASL multi-tenant university female transportation automation SaaS - backend foundation",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.12"
   },
   "scripts": {
     "dev": "tsx watch src/server.ts",
@@ -23,7 +23,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:seed": "tsx prisma/seed.ts",
-    "db:check-constraints": "tsx scripts/check-raw-constraints.ts"
+    "db:check-constraints": "tsx scripts/check-raw-constraints.ts",
+    "simulate:location": "tsx scripts/simulate-driver-location.ts"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.2.1",
@@ -50,13 +51,16 @@
     "eslint": "^9.18.0",
     "prettier": "^3.4.2",
     "prisma": "^6.5.0",
+    "socket.io-client": "^4.8.3",
     "supertest": "^7.0.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0",
-    "vitest": "^2.1.9"
+    "vite": "^8.3.4",
+    "vitest": "^5.0.3"
   },
   "overrides": {
+    "deepmerge-ts": "8.0.2",
     "qs": "^6.16.0"
   }
 }

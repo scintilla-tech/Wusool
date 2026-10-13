@@ -28,9 +28,13 @@ class PlatformScreen extends ConsumerWidget {
       ),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('تعذر تحميل الجامعات\n$e', textAlign: TextAlign.center)),
+        error: (e, _) => Center(
+          child: Text('تعذر تحميل الجامعات\n$e', textAlign: TextAlign.center),
+        ),
         data: (tenants) {
-          if (tenants.isEmpty) return const Center(child: Text('لا توجد جامعات'));
+          if (tenants.isEmpty) {
+            return const Center(child: Text('لا توجد جامعات'));
+          }
           return ListView.separated(
             padding: const EdgeInsets.all(12),
             itemCount: tenants.length,
@@ -40,14 +44,30 @@ class PlatformScreen extends ConsumerWidget {
               return Card(
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: t.isActive ? WaslColors.navy : WaslColors.textSecondary,
-                    child: const Icon(Icons.account_balance, color: Colors.white, size: 20),
+                    backgroundColor: t.isActive
+                        ? WaslColors.navy
+                        : WaslColors.textSecondary,
+                    child: const Icon(
+                      Icons.account_balance,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
                   title: Text(t.name),
-                  subtitle: Text('الرمز: ${t.code} • المستخدمون: ${t.users} • الحافلات: ${t.buses}'),
+                  subtitle: Text(
+                    'الرمز: ${t.code} • المستخدمون: ${t.users} • الحافلات: ${t.buses}',
+                  ),
                   trailing: t.isActive
-                      ? const Icon(Icons.check_circle, color: WaslColors.success, size: 20)
-                      : const Icon(Icons.cancel, color: WaslColors.danger, size: 20),
+                      ? const Icon(
+                          Icons.check_circle,
+                          color: WaslColors.success,
+                          size: 20,
+                        )
+                      : const Icon(
+                          Icons.cancel,
+                          color: WaslColors.danger,
+                          size: 20,
+                        ),
                 ),
               );
             },

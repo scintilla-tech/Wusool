@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_client.dart';
+import '../../core/token_store.dart';
 
 class AuthUser {
   final String id;
@@ -73,6 +74,7 @@ class AuthNotifier extends Notifier<AuthState> {
     _restored = true;
 
     final tokenStore = ref.read(tokenStoreProvider);
+    await _retryPendingLogout(tokenStore);
     if (!tokenStore.hasTokens) {
       state = const AuthState(status: AuthStatus.unauthenticated);
       return;
@@ -103,6 +105,7 @@ class AuthNotifier extends Notifier<AuthState> {
     required String phone,
     required String password,
   }) async {
+    await _retryPendingLogout(ref.read(tokenStoreProvider));
     state = state.copyWith(busy: true, errorMessage: null);
     try {
       final api = ref.read(apiClientProvider);
@@ -111,21 +114,30 @@ class AuthNotifier extends Notifier<AuthState> {
       if (tenantCode.trim().isNotEmpty) {
         payload['tenantCode'] = tenantCode.trim();
       }
-      final res = await api.dio.post<Map<String, dynamic>>('/auth/login', data: payload);
+      final res = await api.dio.post<Map<String, dynamic>>(
+        '/auth/login',
+        data: payload,
+      );
       final data = res.data?['data'] as Map<String, dynamic>?;
       final access = data?['accessToken'] as String?;
       final refresh = data?['refreshToken'] as String?;
       final user = data?['user'] as Map<String, dynamic>?;
 
       if (access == null || refresh == null || user == null) {
-        state = state.copyWith(busy: false, errorMessage: 'استجابة غير صحيحة من الخادم');
+        state = state.copyWith(
+          busy: false,
+          errorMessage: 'استجابة غير صحيحة من الخادم',
+        );
         return false;
       }
 
       final tokenStore = ref.read(tokenStoreProvider);
       await tokenStore.save(access: access, refresh: refresh);
 
-      state = AuthState(status: AuthStatus.authenticated, user: AuthUser.fromJson(user));
+      state = AuthState(
+        status: AuthStatus.authenticated,
+        user: AuthUser.fromJson(user),
+      );
       return true;
     } on DioException catch (e) {
       String? message;
@@ -136,7 +148,10 @@ class AuthNotifier extends Notifier<AuthState> {
           message = error['message'] as String?;
         }
       }
-      state = state.copyWith(busy: false, errorMessage: message ?? 'تعذر تسجيل الدخول');
+      state = state.copyWith(
+        busy: false,
+        errorMessage: message ?? 'تعذر تسجيل الدخول',
+      );
       return false;
     } catch (_) {
       state = state.copyWith(busy: false, errorMessage: 'تعذر تسجيل الدخول');
@@ -150,14 +165,46 @@ class AuthNotifier extends Notifier<AuthState> {
     try {
       final refresh = tokenStore.refreshToken;
       if (refresh != null) {
-        await api.dio.post('/auth/logout', data: {'refreshToken': refresh});
+        // Session revocation and this installation's push-token deactivation
+        // are committed together by the backend.
+        await api.dio.post(
+          '/auth/logout',
+          data: {
+            'refreshToken': refresh,
+            'deviceId': tokenStore.installationId,
+          },
+        );
+        await tokenStore.clearPendingLogout();
+      } else {
+        await api.dio.delete(
+          '/devices',
+          data: {'deviceId': tokenStore.installationId},
+        );
       }
     } catch (_) {
-      // ignore logout errors
+      final refresh = tokenStore.refreshToken;
+      if (refresh != null) await tokenStore.savePendingLogout(refresh);
     }
     await tokenStore.clear();
     state = const AuthState(status: AuthStatus.unauthenticated);
   }
+
+  Future<void> _retryPendingLogout(TokenStore tokenStore) async {
+    final pending = tokenStore.pendingLogoutRefresh;
+    if (pending == null) return;
+    try {
+      final api = ref.read(apiClientProvider);
+      await api.dio.post(
+        '/auth/logout',
+        data: {'refreshToken': pending, 'deviceId': tokenStore.installationId},
+      );
+      await tokenStore.clearPendingLogout();
+    } catch (_) {
+      // Keep the encrypted marker for the next startup/login retry.
+    }
+  }
 }
 
-final authProvider = NotifierProvider<AuthNotifier, AuthState>(AuthNotifier.new);
+final authProvider = NotifierProvider<AuthNotifier, AuthState>(
+  AuthNotifier.new,
+);

@@ -18,12 +18,37 @@ export const studentCreateSchema = z
     homeLatitude: latitudeSchema.optional(),
     homeLongitude: longitudeSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    if ((value.homeLatitude === undefined) !== (value.homeLongitude === undefined)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['homeLatitude'],
+        message: 'Home latitude and longitude must be provided together',
+      });
+    }
+  });
 
-export const studentUpdateSchema = studentCreateSchema
-  .omit({ password: true, studentId: true })
+export const studentUpdateSchema = z
+  .object({
+    firstName: nameSchema.optional(),
+    lastName: nameSchema.optional(),
+    phone: saudiPhoneSchema.optional(),
+    email: emailSchema.optional(),
+    homeLatitude: latitudeSchema.optional(),
+    homeLongitude: longitudeSchema.optional(),
+  })
   .partial()
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    if ((value.homeLatitude === undefined) !== (value.homeLongitude === undefined)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['homeLatitude'],
+        message: 'Home latitude and longitude must be provided together',
+      });
+    }
+  });
 
 export const studentListQuerySchema = z
   .object({

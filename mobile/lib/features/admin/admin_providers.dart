@@ -35,11 +35,15 @@ class AdminDashboard {
   }
 }
 
-final adminDashboardProvider = FutureProvider.autoDispose<AdminDashboard>((ref) async {
+final adminDashboardProvider = FutureProvider.autoDispose<AdminDashboard>((
+  ref,
+) async {
   final api = ref.watch(apiClientProvider);
   final res = await api.dio.get<Map<String, dynamic>>('/admin/dashboard');
   final data = res.data?['data'];
-  return AdminDashboard.fromJson(data is Map<String, dynamic> ? data : const {});
+  return AdminDashboard.fromJson(
+    data is Map<String, dynamic> ? data : const {},
+  );
 });
 
 class AdminStudentRow {
@@ -60,22 +64,27 @@ class AdminStudentRow {
   });
 }
 
-final adminStudentsProvider = FutureProvider.autoDispose<List<AdminStudentRow>>((ref) async {
-  final api = ref.watch(apiClientProvider);
-  final res = await api.dio.get<Map<String, dynamic>>('/students', queryParameters: {'page': 1, 'limit': 50});
-  final items = (res.data?['data']?['items'] as List?) ?? const [];
-  return items.whereType<Map>().map((raw) {
-    final m = raw.cast<String, dynamic>();
-    return AdminStudentRow(
-      id: m['id'] as String? ?? '',
-      firstName: m['firstName'] as String? ?? '',
-      lastName: m['lastName'] as String? ?? '',
-      phone: m['phone'] as String? ?? '',
-      studentId: m['studentId'] as String?,
-      isActive: m['isActive'] as bool? ?? true,
+final adminStudentsProvider = FutureProvider.autoDispose<List<AdminStudentRow>>(
+  (ref) async {
+    final api = ref.watch(apiClientProvider);
+    final res = await api.dio.get<Map<String, dynamic>>(
+      '/students',
+      queryParameters: {'page': 1, 'limit': 50},
     );
-  }).toList();
-});
+    final items = (res.data?['data']?['items'] as List?) ?? const [];
+    return items.whereType<Map>().map((raw) {
+      final m = raw.cast<String, dynamic>();
+      return AdminStudentRow(
+        id: m['id'] as String? ?? '',
+        firstName: m['firstName'] as String? ?? '',
+        lastName: m['lastName'] as String? ?? '',
+        phone: m['phone'] as String? ?? '',
+        studentId: m['studentId'] as String?,
+        isActive: m['isActive'] as bool? ?? true,
+      );
+    }).toList();
+  },
+);
 
 class AdminBusRow {
   final String id;
@@ -93,9 +102,14 @@ class AdminBusRow {
   });
 }
 
-final adminBusesProvider = FutureProvider.autoDispose<List<AdminBusRow>>((ref) async {
+final adminBusesProvider = FutureProvider.autoDispose<List<AdminBusRow>>((
+  ref,
+) async {
   final api = ref.watch(apiClientProvider);
-  final res = await api.dio.get<Map<String, dynamic>>('/structure/buses', queryParameters: {'page': 1, 'limit': 50});
+  final res = await api.dio.get<Map<String, dynamic>>(
+    '/structure/buses',
+    queryParameters: {'page': 1, 'limit': 50},
+  );
   final items = (res.data?['data']?['items'] as List?) ?? const [];
   return items.whereType<Map>().map((raw) {
     final m = raw.cast<String, dynamic>();

@@ -4,6 +4,13 @@ node_modules/
 # Build output
 dist/
 build/
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.packages
+**/.pub-cache/
+**/.gradle/
+**/.cxx/
 
 # Environment / secrets (never commit)
 .env
@@ -13,9 +20,42 @@ build/
 # Logs
 *.log
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
 # Project-local temp artifacts
 .tmp/
+tmp/
+temp/
+recordings/
+docs/evidence/*.mp4
+docs/evidence/*.webm
+docs/evidence/*.mov
+docs/evidence/*.avi
+
+# Local databases, dumps, and backups (Prisma migration SQL remains tracked)
+*.dump
+*.sqlite
+*.sqlite3
+*.db
+*.bak
+backups/
+
+# Private keys, signing material, and machine-local mobile configuration
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+android/key.properties
+android/local.properties
+ios/Runner/GoogleService-Info.plist
+android/app/google-services.json
+
+# Local Docker overrides may contain host-specific credentials
+docker-compose.override.yml
 
 # AI agent / phase working files (not for public repo)
 .opencode/
@@ -29,5 +69,9 @@ coverage/
 # OS / editor
 .DS_Store
 Thumbs.db
+Desktop.ini
 .idea/
 .vscode/
+*.iml
+*.swp
+*.swo

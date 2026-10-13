@@ -1,10 +1,5 @@
 import type { PrismaClient } from '@prisma/client';
-
-function dateOnly(d: Date): Date {
-  const copy = new Date(d);
-  copy.setHours(0, 0, 0, 0);
-  return copy;
-}
+import { dateOnly } from '../../utils/date';
 
 export class AdminService {
   constructor(private readonly prisma: PrismaClient) {}

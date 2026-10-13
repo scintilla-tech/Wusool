@@ -14,6 +14,7 @@ class SupervisorBusView {
   final int missed;
   final int waiting;
   final int notReady;
+  final List<SupervisorAttendanceSession> attendanceSessions;
 
   const SupervisorBusView({
     required this.busId,
@@ -27,6 +28,7 @@ class SupervisorBusView {
     this.missed = 0,
     this.waiting = 0,
     this.notReady = 0,
+    this.attendanceSessions = const [],
   });
 
   bool get hasTrip => tripId != null;
@@ -35,7 +37,8 @@ class SupervisorBusView {
     final bus = json['bus'];
     final trip = json['trip'];
     final counts = json['counts'];
-    int c(String key) => (counts is Map ? (counts[key] as num?)?.toInt() : null) ?? 0;
+    int c(String key) =>
+        (counts is Map ? (counts[key] as num?)?.toInt() : null) ?? 0;
     return SupervisorBusView(
       busId: bus is Map ? bus['id'] as String? ?? '' : '',
       plateNumber: bus is Map ? bus['plateNumber'] as String? ?? '' : '',
@@ -48,14 +51,51 @@ class SupervisorBusView {
       missed: c('missed'),
       waiting: c('waiting'),
       notReady: c('notReady'),
+      attendanceSessions: ((json['attendanceSessions'] as List?) ?? const [])
+          .whereType<Map>()
+          .map(
+            (value) => SupervisorAttendanceSession.fromJson(
+              value.cast<String, dynamic>(),
+            ),
+          )
+          .toList(),
     );
   }
 }
 
-final supervisorBusesProvider = FutureProvider.autoDispose<List<SupervisorBusView>>((ref) async {
-  final api = ref.watch(apiClientProvider);
-  final res = await api.dio.get<Map<String, dynamic>>('/supervisor/buses');
-  final data = res.data?['data'];
-  if (data is! List) return const [];
-  return data.whereType<Map>().map((e) => SupervisorBusView.fromJson(e.cast<String, dynamic>())).toList();
-});
+class SupervisorAttendanceSession {
+  final String direction;
+  final String status;
+  final int attending;
+  final int absent;
+  final int unregistered;
+
+  const SupervisorAttendanceSession({
+    required this.direction,
+    required this.status,
+    required this.attending,
+    required this.absent,
+    required this.unregistered,
+  });
+
+  factory SupervisorAttendanceSession.fromJson(Map<String, dynamic> json) =>
+      SupervisorAttendanceSession(
+        direction: json['direction'] as String? ?? 'OUTBOUND',
+        status: json['status'] as String? ?? 'OPEN',
+        attending: (json['attending'] as num?)?.toInt() ?? 0,
+        absent: (json['absent'] as num?)?.toInt() ?? 0,
+        unregistered: (json['unregistered'] as num?)?.toInt() ?? 0,
+      );
+}
+
+final supervisorBusesProvider =
+    FutureProvider.autoDispose<List<SupervisorBusView>>((ref) async {
+      final api = ref.watch(apiClientProvider);
+      final res = await api.dio.get<Map<String, dynamic>>('/supervisor/buses');
+      final data = res.data?['data'];
+      if (data is! List) return const [];
+      return data
+          .whereType<Map>()
+          .map((e) => SupervisorBusView.fromJson(e.cast<String, dynamic>()))
+          .toList();
+    });

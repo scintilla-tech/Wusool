@@ -1,23 +1,21 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'config.dart';
 import 'token_store.dart';
 
-final sharedPreferencesProvider = Provider<SharedPreferences>(
-  (ref) => throw UnimplementedError('Overridden in main()'),
+final configProvider = Provider<AppConfig>(
+  (ref) => AppConfig.fromEnvironment(),
 );
 
-final configProvider = Provider<AppConfig>((ref) => AppConfig.fromEnvironment());
-
 final tokenStoreProvider = Provider<TokenStore>(
-  (ref) => TokenStore(ref.watch(sharedPreferencesProvider)),
+  (ref) => throw UnimplementedError('Overridden in main()'),
 );
 
 class ApiClient {
   final Dio dio;
   final TokenStore tokenStore;
+  Future<bool>? _refreshInFlight;
 
   ApiClient(this.dio, this.tokenStore, String baseUrl) {
     dio.options = BaseOptions(
@@ -47,12 +45,16 @@ class ApiClient {
               try {
                 final opts = error.requestOptions;
                 opts.extra['retried'] = true;
-                opts.headers['Authorization'] = 'Bearer ${tokenStore.accessToken}';
+                opts.headers['Authorization'] =
+                    'Bearer ${tokenStore.accessToken}';
                 final res = await dio.fetch(opts);
                 handler.resolve(res);
                 return;
-              } catch (e) {
-                handler.next(e as DioException);
+              } on DioException catch (e) {
+                handler.next(e);
+                return;
+              } catch (_) {
+                handler.next(error);
                 return;
               }
             }
@@ -64,6 +66,18 @@ class ApiClient {
   }
 
   Future<bool> _tryRefresh() async {
+    final existing = _refreshInFlight;
+    if (existing != null) return existing;
+    final attempt = _performRefresh();
+    _refreshInFlight = attempt;
+    try {
+      return await attempt;
+    } finally {
+      _refreshInFlight = null;
+    }
+  }
+
+  Future<bool> _performRefresh() async {
     final refresh = tokenStore.refreshToken;
     if (refresh == null) return false;
     try {

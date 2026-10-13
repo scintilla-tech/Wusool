@@ -27,6 +27,7 @@ import { LocationService } from './modules/tracking/location.service';
 import { TripService } from './modules/trips/trips.service';
 import { LocalStorageProvider, type StorageProvider } from './providers/storage';
 import { join } from 'node:path';
+import type { TripEventBus } from './modules/trips/trip-events';
 
 export interface AppDeps {
   config: EnvConfig;
@@ -34,6 +35,8 @@ export interface AppDeps {
   prisma: PrismaClient;
   locationService?: LocationService;
   storage?: StorageProvider;
+  tripService?: TripService;
+  tripEvents?: TripEventBus;
 }
 
 export function createApp({
@@ -42,6 +45,8 @@ export function createApp({
   prisma,
   locationService: injectedLocation,
   storage: injectedStorage,
+  tripService: injectedTripService,
+  tripEvents,
 }: AppDeps): Express {
   const app = express();
 
@@ -84,7 +89,8 @@ export function createApp({
   app.use('/health', createHealthRouter({ prisma, logger }));
 
   const scopeDeps = { prisma, config };
-  const locationService = injectedLocation ?? new LocationService(prisma, new TripService(prisma));
+  const tripService = injectedTripService ?? new TripService(prisma);
+  const locationService = injectedLocation ?? new LocationService(prisma, tripService);
   const storage =
     injectedStorage ?? new LocalStorageProvider(join(process.cwd(), '.tmp', 'storage'));
 
@@ -94,9 +100,9 @@ export function createApp({
   app.use('/api/v1/students', createStudentsSelfRouter({ ...scopeDeps, locationService }));
   app.use('/api/v1/students', createStudentsRouter(scopeDeps));
   app.use('/api/v1/assignments', createAssignmentsRouter(scopeDeps));
-  app.use('/api/v1/attendance', createAttendanceRouter(scopeDeps));
-  app.use('/api/v1/trips', createTripsRouter(scopeDeps));
-  app.use('/api/v1/driver', createDriverRouter(scopeDeps));
+  app.use('/api/v1/attendance', createAttendanceRouter({ ...scopeDeps, tripEvents }));
+  app.use('/api/v1/trips', createTripsRouter({ ...scopeDeps, tripService }));
+  app.use('/api/v1/driver', createDriverRouter({ ...scopeDeps, tripService, tripEvents }));
   app.use('/api/v1/supervisor', createSupervisorRouter(scopeDeps));
   app.use('/api/v1/admin', createAdminRouter(scopeDeps));
   app.use('/api/v1/platform', createPlatformRouter(scopeDeps));

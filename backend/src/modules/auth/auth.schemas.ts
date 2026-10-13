@@ -17,5 +17,12 @@ export const refreshSchema = z
   })
   .strict();
 
+export const logoutSchema = z
+  .object({
+    refreshToken: z.string().trim().min(16, 'Invalid refresh token').max(512),
+    deviceId: z.string().trim().min(1).max(128).optional(),
+  })
+  .strict();
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RefreshInput = z.infer<typeof refreshSchema>;

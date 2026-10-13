@@ -1,16 +1,18 @@
 import type { PrismaClient, Role } from '@prisma/client';
 import { AppError } from '../../utils/appError';
-
-function dateOnly(d: Date): Date {
-  const copy = new Date(d);
-  copy.setHours(0, 0, 0, 0);
-  return copy;
-}
+import { dateOnly } from '../../utils/date';
 
 export interface SupervisorBusView {
   bus: { id: string; plateNumber: string; name: string | null };
   trip: { id: string; status: string; routeName: string | null } | null;
   counts: { total: number; boarded: number; missed: number; waiting: number; notReady: number };
+  attendanceSessions: Array<{
+    direction: string;
+    status: string;
+    attending: number;
+    absent: number;
+    unregistered: number;
+  }>;
 }
 
 export class SupervisorService {
@@ -65,12 +67,18 @@ export class SupervisorService {
         busId: true,
         route: { select: { name: true } },
         tripStudents: { select: { status: true } },
+        direction: true,
+        attendanceSession: {
+          select: { status: true, attendanceIntents: { select: { intent: true } } },
+        },
       },
     });
-    const byBus = new Map(trips.map((t) => [t.busId, t]));
+    const byBus = new Map<string | null, (typeof trips)[number][]>();
+    for (const trip of trips) byBus.set(trip.busId, [...(byBus.get(trip.busId) ?? []), trip]);
 
     return buses.map((bus) => {
-      const trip = byBus.get(bus.id);
+      const busTrips = byBus.get(bus.id) ?? [];
+      const trip = busTrips.find((candidate) => candidate.direction === 'OUTBOUND') ?? busTrips[0];
       const students = trip?.tripStudents ?? [];
       const count = (s: string) => students.filter((x) => x.status === s).length;
       return {
@@ -85,6 +93,18 @@ export class SupervisorService {
           waiting: count('WAITING'),
           notReady: count('NOT_READY'),
         },
+        attendanceSessions: busTrips.map((candidate) => {
+          const intents = candidate.attendanceSession?.attendanceIntents ?? [];
+          const attending = intents.filter((intent) => intent.intent === 'ATTENDING').length;
+          const absent = intents.filter((intent) => intent.intent === 'ABSENT').length;
+          return {
+            direction: candidate.direction,
+            status: candidate.attendanceSession?.status ?? 'OPEN',
+            attending,
+            absent,
+            unregistered: Math.max(0, candidate.tripStudents.length - attending - absent),
+          };
+        }),
       };
     });
   }

@@ -73,7 +73,7 @@ Added (migration `20260913000007_perf_indexes`):
 No indexes were added blindly; both map to measured access patterns. Redundant indexes were
 avoided (the existing `(tenantId, tripDate)` and `(tenantId, busId)` indexes remain useful).
 Tenant-scoped uniques and the three **partial unique active-assignment indexes** were
-verified intact (`npm run db:check-constraints` → 3 partial indexes + 1 CHECK constraint).
+verified intact in the original performance pass. The latest full verifier now reports 8 partial indexes, 1 unique index, and 5 CHECK constraints after the lifecycle and dual-attendance migrations.
 
 ## 4. EXPLAIN ANALYZE Findings
 
@@ -205,7 +205,7 @@ single account against brute force while allowing many distinct users behind one
 
 - `npx prisma validate` → valid
 - `npx prisma migrate deploy` → 7 migrations applied
-- `npm run db:check-constraints` → 3 partial indexes + 1 CHECK constraint
+- `npm run db:check-constraints` → latest run: 8 partial indexes + 1 unique index + 5 CHECK constraints
 - `npm run typecheck` → 0 errors
 - `npm run lint` → 0 errors / 0 warnings
 - `npm test` → 103 passed, 4 integration tests skipped (no `RUN_DB_TESTS`)

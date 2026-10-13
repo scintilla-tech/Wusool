@@ -5,10 +5,10 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:wasl_mobile/app.dart';
 import 'package:wasl_mobile/core/api_client.dart';
+import 'package:wasl_mobile/core/token_store.dart';
 import 'package:wasl_mobile/features/auth/login_screen.dart';
 import 'package:wasl_mobile/features/student/student_shell.dart';
 
@@ -32,7 +32,10 @@ class _FakeAdapter implements HttpClientAdapter {
         return ResponseBody.fromString(
           jsonEncode({
             'success': false,
-            'error': {'code': 'INVALID_CREDENTIALS', 'message': 'Invalid credentials'},
+            'error': {
+              'code': 'INVALID_CREDENTIALS',
+              'message': 'Invalid credentials',
+            },
           }),
           loginStatus,
           headers: {
@@ -45,7 +48,12 @@ class _FakeAdapter implements HttpClientAdapter {
         'data': {
           'accessToken': 'access',
           'refreshToken': 'refresh',
-          'user': {'id': 'u1', 'role': 'STUDENT', 'firstName': 'Nejood', 'lastName': 'Demo'},
+          'user': {
+            'id': 'u1',
+            'role': 'STUDENT',
+            'firstName': 'Nejood',
+            'lastName': 'Demo',
+          },
         },
       });
     }
@@ -55,7 +63,12 @@ class _FakeAdapter implements HttpClientAdapter {
       }
       return _json({
         'success': true,
-        'data': {'id': 'u1', 'role': 'STUDENT', 'firstName': 'Nejood', 'lastName': 'Demo'},
+        'data': {
+          'id': 'u1',
+          'role': 'STUDENT',
+          'firstName': 'Nejood',
+          'lastName': 'Demo',
+        },
       });
     }
     // Any other endpoint the role shell may call.
@@ -63,15 +76,30 @@ class _FakeAdapter implements HttpClientAdapter {
   }
 
   ResponseBody _json(Object body) => ResponseBody.fromString(
-        jsonEncode(body),
-        200,
-        headers: {
-          Headers.contentTypeHeader: [Headers.jsonContentType],
-        },
-      );
+    jsonEncode(body),
+    200,
+    headers: {
+      Headers.contentTypeHeader: [Headers.jsonContentType],
+    },
+  );
 
   @override
   void close({bool force = false}) {}
+}
+
+class _MemoryTokenStorage implements TokenStorageBackend {
+  final Map<String, String> values;
+
+  _MemoryTokenStorage([Map<String, String>? initial]) : values = {...?initial};
+
+  @override
+  Future<void> delete(String key) async => values.remove(key);
+
+  @override
+  Future<String?> read(String key) async => values[key];
+
+  @override
+  Future<void> write(String key, String value) async => values[key] = value;
 }
 
 Future<Widget> _app({
@@ -79,15 +107,22 @@ Future<Widget> _app({
   int meStatus = 200,
   Map<String, Object> prefs = const {},
 }) async {
-  SharedPreferences.setMockInitialValues(prefs);
-  final sharedPrefs = await SharedPreferences.getInstance();
+  final tokenStore = TokenStore(
+    _MemoryTokenStorage(
+      prefs.map((key, value) => MapEntry(key, value.toString())),
+    ),
+  );
+  await tokenStore.initialize();
   return ProviderScope(
     overrides: [
-      sharedPreferencesProvider.overrideWithValue(sharedPrefs),
+      tokenStoreProvider.overrideWithValue(tokenStore),
       apiClientProvider.overrideWith((ref) {
         final tokenStore = ref.watch(tokenStoreProvider);
         final dio = Dio(BaseOptions(baseUrl: 'http://test.local/api/v1'))
-          ..httpClientAdapter = _FakeAdapter(loginStatus: loginStatus, meStatus: meStatus);
+          ..httpClientAdapter = _FakeAdapter(
+            loginStatus: loginStatus,
+            meStatus: meStatus,
+          );
         return ApiClient(dio, tokenStore, 'http://test.local/api/v1');
       }),
     ],
@@ -96,24 +131,28 @@ Future<Widget> _app({
 }
 
 void main() {
-  testWidgets('successful login navigates to the role shell (no infinite loading)',
-      (tester) async {
-    await tester.pumpWidget(await _app());
-    await tester.pumpAndSettle();
-    expect(find.byType(LoginScreen), findsOneWidget);
+  testWidgets(
+    'successful login navigates to the role shell (no infinite loading)',
+    (tester) async {
+      await tester.pumpWidget(await _app());
+      await tester.pumpAndSettle();
+      expect(find.byType(LoginScreen), findsOneWidget);
 
-    final fields = find.byType(TextFormField);
-    await tester.enterText(fields.at(1), '+966500000101');
-    await tester.enterText(fields.at(2), 'WaslDemo@2026');
-    await tester.tap(find.text('تسجيل الدخول'));
-    await tester.pumpAndSettle();
+      final fields = find.byType(TextFormField);
+      await tester.enterText(fields.at(1), '+966500000101');
+      await tester.enterText(fields.at(2), 'test-password');
+      await tester.tap(find.text('تسجيل الدخول'));
+      await tester.pumpAndSettle();
 
-    expect(find.byType(LoginScreen), findsNothing);
-    expect(find.byType(StudentShell), findsOneWidget);
-    expect(find.byType(CircularProgressIndicator), findsNothing);
-  });
+      expect(find.byType(LoginScreen), findsNothing);
+      expect(find.byType(StudentShell), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+    },
+  );
 
-  testWidgets('failed login shows an error and restores the login button', (tester) async {
+  testWidgets('failed login shows an error and restores the login button', (
+    tester,
+  ) async {
     await tester.pumpWidget(await _app(loginStatus: 401));
     await tester.pumpAndSettle();
 
@@ -128,9 +167,14 @@ void main() {
     expect(find.byType(SnackBar), findsOneWidget); // visible error
   });
 
-  testWidgets('a 304 on /auth/me does not leave the app stuck loading', (tester) async {
+  testWidgets('a 304 on /auth/me does not leave the app stuck loading', (
+    tester,
+  ) async {
     await tester.pumpWidget(
-      await _app(meStatus: 304, prefs: {'wasl_access_token': 'a', 'wasl_refresh_token': 'r'}),
+      await _app(
+        meStatus: 304,
+        prefs: {'wasl_access_token': 'a', 'wasl_refresh_token': 'r'},
+      ),
     );
     await tester.pumpAndSettle();
 

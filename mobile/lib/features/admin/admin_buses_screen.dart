@@ -23,7 +23,9 @@ class AdminBusesScreen extends ConsumerWidget {
       ),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('تعذر تحميل الحافلات\n$e', textAlign: TextAlign.center)),
+        error: (e, _) => Center(
+          child: Text('تعذر تحميل الحافلات\n$e', textAlign: TextAlign.center),
+        ),
         data: (buses) {
           if (buses.isEmpty) return const Center(child: Text('لا توجد حافلات'));
           return ListView.separated(
@@ -32,14 +34,25 @@ class AdminBusesScreen extends ConsumerWidget {
             itemBuilder: (context, i) {
               final b = buses[i];
               return ListTile(
-                leading: const Icon(Icons.directions_bus, color: WaslColors.navy),
+                leading: const Icon(
+                  Icons.directions_bus,
+                  color: WaslColors.navy,
+                ),
                 title: Text(b.name ?? b.plateNumber),
                 subtitle: Text(
                   '${b.plateNumber}${b.capacity != null ? ' • ${b.capacity} مقعد' : ''}',
                 ),
                 trailing: b.isActive
-                    ? const Icon(Icons.check_circle, color: WaslColors.success, size: 20)
-                    : const Icon(Icons.cancel, color: WaslColors.danger, size: 20),
+                    ? const Icon(
+                        Icons.check_circle,
+                        color: WaslColors.success,
+                        size: 20,
+                      )
+                    : const Icon(
+                        Icons.cancel,
+                        color: WaslColors.danger,
+                        size: 20,
+                      ),
               );
             },
           );
