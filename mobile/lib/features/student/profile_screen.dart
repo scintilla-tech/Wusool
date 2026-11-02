@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 
-import '../../core/theme.dart';
+import '../../core/ui.dart';
 import '../auth/auth_state.dart';
 import 'student_providers.dart';
 
@@ -11,122 +12,69 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(studentProfileProvider);
+    final trip = ref.watch(studentTripProvider).value;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('الملف الشخصي'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => ref.read(authProvider.notifier).logout(),
-          ),
-        ],
-      ),
+      appBar: const NdsAppBar(title: 'حسابي'),
       body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Text('تعذر تحميل الملف\n$e', textAlign: TextAlign.center),
-        ),
-        data: (profile) => ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  children: [
-                    const CircleAvatar(
-                      radius: 30,
-                      backgroundColor: WaslColors.navy,
-                      child: Icon(Icons.person, color: Colors.white, size: 34),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${profile.firstName} ${profile.lastName}',
-                            style: const TextStyle(
-                              fontSize: 19,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          if (profile.studentId != null)
-                            Text(
-                              'الرقم الجامعي: ${profile.studentId}',
-                              style: const TextStyle(
-                                color: WaslColors.textSecondary,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+        loading: () => const LoadingView(),
+        error: (_, _) =>
+            ErrorView(onRetry: () => ref.invalidate(studentProfileProvider)),
+        data: (profile) {
+          final name = '${profile.firstName} ${profile.lastName}';
+          final hasHome =
+              profile.homeLatitude != null && profile.homeLongitude != null;
+          return PageBody(
+            onRefresh: () async {
+              ref.invalidate(studentTripProvider);
+              ref.invalidate(studentProfileProvider);
+              await ref.read(studentProfileProvider.future);
+            },
+            children: [
+              ProfileHeader(
+                name: name,
+                meta: profile.studentId == null
+                    ? 'طالبة'
+                    : 'طالبة · الرقم الجامعي ${ltr(profile.studentId!)}',
               ),
-            ),
-            const SizedBox(height: 12),
-            _InfoTile(
-              icon: Icons.phone,
-              label: 'رقم الجوال',
-              value: profile.phone,
-            ),
-            if (profile.email != null)
-              _InfoTile(
-                icon: Icons.email,
-                label: 'البريد الجامعي',
-                value: profile.email!,
+              TitledPanel(
+                title: 'بيانات النقل',
+                child: KvList([
+                  KvEntry(
+                    'حافلة اليوم',
+                    trip?.busPlate == null
+                        ? 'لا توجد رحلة'
+                        : ltr(trip!.busPlate!),
+                  ),
+                  KvEntry('المسار', trip?.routeName ?? 'غير محدد'),
+                  KvEntry(
+                    'الموقع المنزلي',
+                    hasHome
+                        ? ltr(
+                            '${profile.homeLatitude!.toStringAsFixed(4)}, ${profile.homeLongitude!.toStringAsFixed(4)}',
+                          )
+                        : 'غير محدد',
+                  ),
+                ]),
               ),
-            _InfoTile(
-              icon: Icons.home,
-              label: 'الموقع المنزلي',
-              value:
-                  (profile.homeLatitude != null &&
-                      profile.homeLongitude != null)
-                  ? '${profile.homeLatitude!.toStringAsFixed(4)}, ${profile.homeLongitude!.toStringAsFixed(4)}'
-                  : 'غير محدد',
-            ),
-            const SizedBox(height: 20),
-            OutlinedButton.icon(
-              onPressed: null,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: WaslColors.danger,
+              TitledPanel(
+                title: 'بيانات التواصل',
+                child: KvList([
+                  KvEntry('رقم الجوال', ltr(profile.phone)),
+                  KvEntry(
+                    'البريد الجامعي',
+                    profile.email == null ? 'غير مسجل' : ltr(profile.email!),
+                  ),
+                ]),
               ),
-              icon: const Icon(Icons.delete_outline),
-              label: const Text('طلب حذف الحساب — غير متاح حالياً'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _InfoTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-
-  const _InfoTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        leading: Icon(icon, color: WaslColors.navy),
-        title: Text(
-          label,
-          style: const TextStyle(fontSize: 13, color: WaslColors.textSecondary),
-        ),
-        subtitle: Text(
-          value,
-          style: const TextStyle(fontSize: 16, color: WaslColors.textPrimary),
-        ),
+              OutlinedButton.icon(
+                onPressed: () => ref.read(authProvider.notifier).logout(),
+                icon: const AppIcon(HugeIcons.strokeRoundedLogout01, size: 20),
+                label: const Text('تسجيل الخروج'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 
-import 'attendance_screen.dart';
+import '../../core/ui.dart';
 import 'profile_screen.dart';
+import 'student_home_screen.dart';
 import 'tracking_screen.dart';
 
 class StudentShell extends StatefulWidget {
@@ -14,29 +16,26 @@ class StudentShell extends StatefulWidget {
 class _StudentShellState extends State<StudentShell> {
   int _index = 0;
 
-  static const _screens = [
-    AttendanceScreen(),
-    TrackingScreen(),
-    ProfileScreen(),
-  ];
+  void _select(int index) => setState(() => _index = index);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(index: _index, children: _screens),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.event_available),
-            label: 'الحضور',
-          ),
-          NavigationDestination(icon: Icon(Icons.map), label: 'التتبع'),
-          NavigationDestination(
-            icon: Icon(Icons.person),
-            label: 'الملف الشخصي',
-          ),
+      body: IndexedStack(
+        index: _index,
+        children: [
+          StudentHomeScreen(onTrack: () => _select(1)),
+          const TrackingScreen(),
+          const ProfileScreen(),
+        ],
+      ),
+      bottomNavigationBar: NdsTabBar(
+        currentIndex: _index,
+        onTap: _select,
+        items: const [
+          NdsTabItem(HugeIcons.strokeRoundedHome01, 'الرئيسية'),
+          NdsTabItem(HugeIcons.strokeRoundedMaps, 'التتبع'),
+          NdsTabItem(HugeIcons.strokeRoundedUserCircle, 'حسابي'),
         ],
       ),
     );
