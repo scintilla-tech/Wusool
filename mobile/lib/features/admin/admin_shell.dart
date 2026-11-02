@@ -1,74 +1,48 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 
-import '../auth/auth_state.dart';
+import '../../core/ui.dart';
+import '../home/account_screen.dart';
 import 'admin_buses_screen.dart';
 import 'admin_dashboard_screen.dart';
 import 'admin_students_screen.dart';
 
-class AdminShell extends ConsumerWidget {
+class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return _AdminShellBody(
-      onLogout: () => ref.read(authProvider.notifier).logout(),
-    );
-  }
+  State<AdminShell> createState() => _AdminShellState();
 }
 
-class _AdminShellBody extends StatefulWidget {
-  final VoidCallback onLogout;
-  const _AdminShellBody({required this.onLogout});
-
-  @override
-  State<_AdminShellBody> createState() => _AdminShellBodyState();
-}
-
-class _AdminShellBodyState extends State<_AdminShellBody> {
+class _AdminShellState extends State<AdminShell> {
   int _index = 0;
 
+  void _select(int index) => setState(() => _index = index);
+
   @override
   Widget build(BuildContext context) {
-    final screens = [
-      const AdminDashboardScreen(),
-      const AdminStudentsScreen(),
-      const AdminBusesScreen(),
-      _LogoutScreen(onLogout: widget.onLogout),
-    ];
     return Scaffold(
-      body: IndexedStack(index: _index, children: screens),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.dashboard), label: 'الرئيسية'),
-          NavigationDestination(icon: Icon(Icons.school), label: 'الطالبات'),
-          NavigationDestination(
-            icon: Icon(Icons.directions_bus),
-            label: 'الحافلات',
+      body: IndexedStack(
+        index: _index,
+        children: [
+          AdminDashboardScreen(
+            onOpenStudents: () => _select(1),
+            onOpenBuses: () => _select(2),
           ),
-          NavigationDestination(icon: Icon(Icons.logout), label: 'خروج'),
+          const AdminStudentsScreen(),
+          const AdminBusesScreen(),
+          const AccountScreen(roleLabel: 'إدارة النقل · جامعة الملك خالد'),
         ],
       ),
-    );
-  }
-}
-
-class _LogoutScreen extends StatelessWidget {
-  final VoidCallback onLogout;
-  const _LogoutScreen({required this.onLogout});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('الحساب')),
-      body: Center(
-        child: ElevatedButton.icon(
-          onPressed: onLogout,
-          icon: const Icon(Icons.logout),
-          label: const Text('تسجيل الخروج'),
-        ),
+      bottomNavigationBar: NdsTabBar(
+        currentIndex: _index,
+        onTap: _select,
+        items: const [
+          NdsTabItem(HugeIcons.strokeRoundedDashboardSquare01, 'الرئيسية'),
+          NdsTabItem(HugeIcons.strokeRoundedMortarboard01, 'الطالبات'),
+          NdsTabItem(HugeIcons.strokeRoundedBus01, 'الحافلات'),
+          NdsTabItem(HugeIcons.strokeRoundedUserCircle, 'الحساب'),
+        ],
       ),
     );
   }

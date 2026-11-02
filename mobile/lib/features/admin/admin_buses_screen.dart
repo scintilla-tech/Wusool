@@ -1,60 +1,97 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 
+import '../../core/labels.dart';
 import '../../core/theme.dart';
+import '../../core/ui.dart';
 import 'admin_providers.dart';
 
-class AdminBusesScreen extends ConsumerWidget {
+class AdminBusesScreen extends ConsumerStatefulWidget {
   const AdminBusesScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AdminBusesScreen> createState() => _AdminBusesScreenState();
+}
+
+class _AdminBusesScreenState extends ConsumerState<AdminBusesScreen> {
+  final _search = TextEditingController();
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  bool _matches(AdminBusRow bus) {
+    final query = _search.text.trim().toLowerCase();
+    if (query.isEmpty) return true;
+    return [
+      bus.plateNumber,
+      bus.name,
+    ].nonNulls.any((value) => value.toLowerCase().contains(query));
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final async = ref.watch(adminBusesProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('الحافلات'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () => ref.invalidate(adminBusesProvider),
-          ),
-        ],
-      ),
+      appBar: const NdsAppBar(title: 'الحافلات'),
       body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Text('تعذر تحميل الحافلات\n$e', textAlign: TextAlign.center),
-        ),
+        loading: () => const LoadingView(),
+        error: (_, _) =>
+            ErrorView(onRetry: () => ref.invalidate(adminBusesProvider)),
         data: (buses) {
-          if (buses.isEmpty) return const Center(child: Text('لا توجد حافلات'));
-          return ListView.separated(
-            itemCount: buses.length,
-            separatorBuilder: (_, _) => const Divider(height: 1),
-            itemBuilder: (context, i) {
-              final b = buses[i];
-              return ListTile(
-                leading: const Icon(
-                  Icons.directions_bus,
-                  color: WaslColors.navy,
-                ),
-                title: Text(b.name ?? b.plateNumber),
-                subtitle: Text(
-                  '${b.plateNumber}${b.capacity != null ? ' • ${b.capacity} مقعد' : ''}',
-                ),
-                trailing: b.isActive
-                    ? const Icon(
-                        Icons.check_circle,
-                        color: WaslColors.success,
-                        size: 20,
-                      )
-                    : const Icon(
-                        Icons.cancel,
-                        color: WaslColors.danger,
-                        size: 20,
-                      ),
-              );
+          final shown = buses.where(_matches).toList();
+          return PageBody(
+            onRefresh: () async {
+              ref.invalidate(adminBusesProvider);
+              await ref.read(adminBusesProvider.future);
             },
+            children: [
+              NdsField(
+                label: 'البحث عن حافلة',
+                controller: _search,
+                icon: HugeIcons.strokeRoundedSearch01,
+                hint: 'رقم اللوحة أو اسم الحافلة',
+                textInputAction: TextInputAction.search,
+                onChanged: (_) => setState(() {}),
+              ),
+              Text(
+                busCount(shown.length),
+                style: NdsText.textSm.copyWith(color: Nds.textSecondary),
+              ),
+              if (shown.isEmpty)
+                const MessageView(
+                  icon: HugeIcons.strokeRoundedBus01,
+                  title: 'لا توجد حافلات',
+                )
+              else
+                NdsGroup(
+                  children: [
+                    for (final bus in shown)
+                      NdsListItem(
+                        leading: FeaturedIcon(
+                          HugeIcons.strokeRoundedBus01,
+                          tone: bus.isActive ? Tone.primary : Tone.neutral,
+                        ),
+                        title: bus.name ?? ltr(bus.plateNumber),
+                        titleBadge: NdsTag(
+                          bus.isActive ? 'نشطة' : 'معطّلة',
+                          status: bus.isActive
+                              ? TagStatus.success
+                              : TagStatus.error,
+                        ),
+                        meta: [
+                          if (bus.name != null && bus.name != bus.plateNumber)
+                            ltr(bus.plateNumber),
+                          if (bus.capacity != null) seatCount(bus.capacity!),
+                        ].join(' · '),
+                      ),
+                  ],
+                ),
+            ],
           );
         },
       ),

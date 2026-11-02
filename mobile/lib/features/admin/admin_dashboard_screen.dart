@@ -1,99 +1,92 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 
-import '../../core/theme.dart';
+import '../../core/ui.dart';
 import 'admin_providers.dart';
 
 class AdminDashboardScreen extends ConsumerWidget {
-  const AdminDashboardScreen({super.key});
+  final VoidCallback onOpenStudents;
+  final VoidCallback onOpenBuses;
+
+  const AdminDashboardScreen({
+    super.key,
+    required this.onOpenStudents,
+    required this.onOpenBuses,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(adminDashboardProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('لوحة المعلومات'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () => ref.invalidate(adminDashboardProvider),
-          ),
-        ],
+      appBar: const BrandBar(
+        title: 'إدارة الحركة والنقل',
+        subtitle: 'جامعة الملك خالد',
       ),
       body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Text('تعذر تحميل الإحصائيات\n$e', textAlign: TextAlign.center),
-        ),
-        data: (d) => GridView.count(
-          padding: const EdgeInsets.all(16),
-          crossAxisCount: 2,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 1.5,
+        loading: () => const LoadingView(),
+        error: (_, _) =>
+            ErrorView(onRetry: () => ref.invalidate(adminDashboardProvider)),
+        data: (d) => PageBody(
+          onRefresh: () async {
+            ref.invalidate(adminDashboardProvider);
+            await ref.read(adminDashboardProvider.future);
+          },
           children: [
-            _StatCard(
-              label: 'الحافلات',
-              value: d.buses,
-              icon: Icons.directions_bus,
+            const PageHeading(
+              'لوحة المعلومات',
+              lead: 'مرحباً بك في لوحة التحكم الإدارية لنظام النقل.',
             ),
-            _StatCard(label: 'المسارات', value: d.routes, icon: Icons.route),
-            _StatCard(label: 'الطالبات', value: d.students, icon: Icons.school),
-            _StatCard(
-              label: 'السائقون',
-              value: d.drivers,
-              icon: Icons.person_pin,
+            Section(
+              title: 'التشغيل',
+              children: [
+                NdsGrid(
+                  columns: 3,
+                  children: [
+                    StatTile(value: '${d.buses}', label: 'الحافلات'),
+                    StatTile(value: '${d.routes}', label: 'المسارات'),
+                    StatTile(value: '${d.tripsToday}', label: 'رحلات اليوم'),
+                  ],
+                ),
+              ],
             ),
-            _StatCard(
-              label: 'المشرفات',
-              value: d.supervisors,
-              icon: Icons.supervisor_account,
+            Section(
+              title: 'المستخدمون',
+              children: [
+                NdsGrid(
+                  columns: 2,
+                  children: [
+                    StatTile(value: '${d.students}', label: 'الطالبات'),
+                    StatTile(value: '${d.drivers}', label: 'السائقون'),
+                    StatTile(value: '${d.supervisors}', label: 'المشرفات'),
+                    StatTile(
+                      value: '${d.fieldSupervisors}',
+                      label: 'المشرفات الميدانيات',
+                    ),
+                  ],
+                ),
+              ],
             ),
-            _StatCard(
-              label: 'رحلات اليوم',
-              value: d.tripsToday,
-              icon: Icons.today,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  final String label;
-  final int value;
-  final IconData icon;
-
-  const _StatCard({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Icon(icon, color: WaslColors.emerald, size: 26),
-            Text(
-              '$value',
-              style: const TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.w800,
-                color: WaslColors.navy,
-              ),
-            ),
-            Text(
-              label,
-              style: const TextStyle(color: WaslColors.textSecondary),
+            Section(
+              title: 'إجراءات سريعة',
+              children: [
+                NdsGrid(
+                  columns: 2,
+                  children: [
+                    NdsTile(
+                      icon: HugeIcons.strokeRoundedMortarboard01,
+                      label: 'دليل الطالبات',
+                      onTap: onOpenStudents,
+                    ),
+                    NdsTile(
+                      icon: HugeIcons.strokeRoundedBus01,
+                      label: 'الحافلات',
+                      onTap: onOpenBuses,
+                    ),
+                  ],
+                ),
+              ],
             ),
           ],
         ),
