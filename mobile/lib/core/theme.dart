@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 /// NDS (DGA theme) color primitives, as used by the redesign canvas.
@@ -130,6 +131,26 @@ class NdsText {
   static final textMd = _style(16, 24);
   static final textSm = _style(14, 20);
   static final textXs = _style(12, 18);
+}
+
+/// Lets a mouse drag lists as a finger does, so pull-to-refresh also works in
+/// a desktop browser.
+class AppScrollBehavior extends MaterialScrollBehavior {
+  const AppScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+    ...super.dragDevices,
+    PointerDeviceKind.mouse,
+  };
+
+  /// macOS elastic scrolling absorbs most of a pull, so a mouse drag would
+  /// rarely reach the refresh point. Phones keep their native scrolling.
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) =>
+      getPlatform(context) == TargetPlatform.macOS
+      ? const ClampingScrollPhysics()
+      : super.getScrollPhysics(context);
 }
 
 ThemeData buildTheme() {

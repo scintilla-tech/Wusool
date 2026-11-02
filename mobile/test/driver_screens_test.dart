@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -23,6 +25,7 @@ Widget _startTripApp(Future<List<DriverTrip>> Function() trips) {
     overrides: [driverTripsProvider.overrideWith((ref) => trips())],
     child: MaterialApp(
       theme: buildTheme(),
+      scrollBehavior: const AppScrollBehavior(),
       home: Directionality(
         textDirection: TextDirection.rtl,
         child: StartTripScreen(tripId: 'return', actions: _FakeActions()),
@@ -68,5 +71,37 @@ void main() {
 
     expect(_startEnabled(tester), isTrue);
     expect(find.textContaining('لديك رحلة جارية'), findsNothing);
+  });
+
+  testWidgets('a mouse pull refreshes in a Mac browser', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    var fetches = 0;
+    await tester.pumpWidget(
+      _startTripApp(() async {
+        fetches++;
+        return const [_returnTrip];
+      }),
+    );
+    await tester.pumpAndSettle();
+    expect(fetches, 1);
+
+    final mouse = await tester.startGesture(
+      tester.getCenter(find.byType(ListView)),
+      kind: PointerDeviceKind.mouse,
+    );
+    for (var moved = 0; moved < 22; moved++) {
+      await mouse.moveBy(const Offset(0, 10));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await mouse.up();
+    await tester.pumpAndSettle();
+
+    expect(fetches, 2);
+    debugDefaultTargetPlatformOverride = null;
   });
 }
