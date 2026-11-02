@@ -1,8 +1,12 @@
-import type { PrismaClient } from '@prisma/client';
+import { Prisma, type PrismaClient } from '@prisma/client';
 import { AppError } from '../../utils/appError';
 import { dateOnly } from '../../utils/date';
 import type { TripCreateInput } from './trips.schemas';
 import type { TripEventBus } from './trip-events';
+
+function isUniqueViolation(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+}
 
 export class TripService {
   constructor(
@@ -169,34 +173,56 @@ export class TripService {
     if (dateOnly(trip.tripDate).getTime() !== today.getTime()) {
       throw new AppError(409, 'INVALID_STATE', "Only today's trip can be started");
     }
-    const changed = await this.prisma.$transaction(async (tx) => {
-      const result = await tx.dailyTrip.updateMany({
-        where: {
-          id: tripId,
-          tenantId,
-          driverProfileId: trip.driverProfileId,
-          status: 'SCHEDULED',
-          tripDate: today,
-        },
-        data: { status: 'IN_PROGRESS', startedAt: new Date() },
-      });
-      if (result.count === 1) {
-        await tx.auditLog.create({
-          data: {
-            tenantId,
-            actorUserId: driverUserId,
-            action: 'TRIP_STARTED',
-            entityType: 'DailyTrip',
-            entityId: tripId,
-          },
-        });
-      }
-      return result;
-    });
+    const changed = await this.markTripStarted(tenantId, driverUserId, tripId, trip, today);
     if (changed.count !== 1) {
       throw new AppError(409, 'INVALID_STATE', 'Trip is not in SCHEDULED state');
     }
     return this.prisma.dailyTrip.findUniqueOrThrow({ where: { id: tripId } });
+  }
+
+  private async markTripStarted(
+    tenantId: string,
+    driverUserId: string,
+    tripId: string,
+    trip: { driverProfileId: string | null },
+    today: Date,
+  ) {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const result = await tx.dailyTrip.updateMany({
+          where: {
+            id: tripId,
+            tenantId,
+            driverProfileId: trip.driverProfileId,
+            status: 'SCHEDULED',
+            tripDate: today,
+          },
+          data: { status: 'IN_PROGRESS', startedAt: new Date() },
+        });
+        if (result.count === 1) {
+          await tx.auditLog.create({
+            data: {
+              tenantId,
+              actorUserId: driverUserId,
+              action: 'TRIP_STARTED',
+              entityType: 'DailyTrip',
+              entityId: tripId,
+            },
+          });
+        }
+        return result;
+      });
+    } catch (error) {
+      // The partial unique indexes allow one running trip per driver and per bus.
+      if (isUniqueViolation(error)) {
+        throw new AppError(
+          409,
+          'TRIP_ALREADY_IN_PROGRESS',
+          'The driver or bus already has a trip in progress',
+        );
+      }
+      throw error;
+    }
   }
 
   async setStudentStatus(

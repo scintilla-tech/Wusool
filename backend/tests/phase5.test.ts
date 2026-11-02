@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import type { PrismaClient } from '@prisma/client';
+import { Prisma, type PrismaClient } from '@prisma/client';
 import { TripService } from '../src/modules/trips/trips.service';
 
 function prisma(partial: unknown): PrismaClient {
@@ -124,5 +124,44 @@ describe('trip completion + transport confirmation', () => {
       }),
     );
     await expect(service.completeTrip('t1', 'u1', 't1')).rejects.toThrow('not in progress');
+  });
+
+  describe('starting a trip while another one runs', () => {
+    function startService(failure: Error) {
+      return new TripService(
+        prisma({
+          driverProfile: { findFirst: vi.fn().mockResolvedValue({ id: 'dp1' }) },
+          dailyTrip: {
+            findFirst: vi.fn().mockResolvedValue({
+              id: 'return-trip',
+              tenantId: 'tenant1',
+              status: 'SCHEDULED',
+              driverProfileId: 'dp1',
+              tripDate: new Date(),
+            }),
+          },
+          $transaction: vi.fn().mockRejectedValue(failure),
+        }),
+      );
+    }
+
+    it('turns the running-trip index violation into a clear error', async () => {
+      const violation = new Prisma.PrismaClientKnownRequestError('unique', {
+        code: 'P2002',
+        clientVersion: 'test',
+      });
+
+      await expect(
+        startService(violation).startTrip('tenant1', 'u1', 'return-trip'),
+      ).rejects.toMatchObject({ statusCode: 409, code: 'TRIP_ALREADY_IN_PROGRESS' });
+    });
+
+    it('does not disguise other database failures', async () => {
+      const failure = new Error('connection lost');
+
+      await expect(startService(failure).startTrip('tenant1', 'u1', 'return-trip')).rejects.toBe(
+        failure,
+      );
+    });
   });
 });
