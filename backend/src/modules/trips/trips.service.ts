@@ -1,4 +1,4 @@
-import { Prisma, type PrismaClient } from '@prisma/client';
+import { Prisma, type PrismaClient, type TripStatus } from '@prisma/client';
 import { AppError } from '../../utils/appError';
 import { dateOnly } from '../../utils/date';
 import type { TripCreateInput } from './trips.schemas';
@@ -108,11 +108,15 @@ export class TripService {
 
   // ----- Driver: today's trip -----
   async getDriverToday(tenantId: string, driverUserId: string) {
-    const trips = await this.getDriverTodayTrips(tenantId, driverUserId);
+    const trips = await this.findDriverTrips(tenantId, driverUserId, ['SCHEDULED', 'IN_PROGRESS']);
     return trips[0] ?? null;
   }
 
   async getDriverTodayTrips(tenantId: string, driverUserId: string) {
+    return this.findDriverTrips(tenantId, driverUserId, ['SCHEDULED', 'IN_PROGRESS', 'COMPLETED']);
+  }
+
+  private async findDriverTrips(tenantId: string, driverUserId: string, statuses: TripStatus[]) {
     const profile = await this.resolveDriverProfile(tenantId, driverUserId);
     const today = dateOnly(new Date());
     return this.prisma.dailyTrip.findMany({
@@ -120,7 +124,7 @@ export class TripService {
         tenantId,
         driverProfileId: profile.id,
         tripDate: today,
-        status: { in: ['SCHEDULED', 'IN_PROGRESS'] },
+        status: { in: statuses },
       },
       include: {
         bus: true,

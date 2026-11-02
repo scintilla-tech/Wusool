@@ -164,4 +164,35 @@ describe('trip completion + transport confirmation', () => {
       );
     });
   });
+
+  describe("driver's list of today's trips", () => {
+    function listService() {
+      const findMany = vi.fn().mockResolvedValue([{ id: 'outbound' }, { id: 'return' }]);
+      const service = new TripService(
+        prisma({
+          driverProfile: { findFirst: vi.fn().mockResolvedValue({ id: 'dp1' }) },
+          dailyTrip: { findMany },
+        }),
+      );
+      return { service, findMany };
+    }
+
+    it('includes finished trips so their summary stays reachable', async () => {
+      const { service, findMany } = listService();
+
+      await service.getDriverTodayTrips('tenant1', 'u1');
+      expect(findMany.mock.calls[0][0].where.status.in).toEqual([
+        'SCHEDULED',
+        'IN_PROGRESS',
+        'COMPLETED',
+      ]);
+    });
+
+    it('keeps the single current trip limited to active trips', async () => {
+      const { service, findMany } = listService();
+
+      await service.getDriverToday('tenant1', 'u1');
+      expect(findMany.mock.calls[0][0].where.status.in).toEqual(['SCHEDULED', 'IN_PROGRESS']);
+    });
+  });
 });
