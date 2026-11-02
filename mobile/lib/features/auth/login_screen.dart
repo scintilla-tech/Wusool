@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/theme.dart';
+import '../../core/ui.dart';
 import 'auth_state.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -40,7 +42,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           content: Text(
             ref.read(authProvider).errorMessage ?? 'تعذر تسجيل الدخول',
           ),
-          backgroundColor: WaslColors.danger,
+          backgroundColor: NdsColors.red700,
         ),
       );
     }
@@ -51,89 +53,98 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final auth = ref.watch(authProvider);
 
     return Scaffold(
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Icon(
-                    Icons.directions_bus,
-                    size: 56,
-                    color: WaslColors.emerald,
+      backgroundColor: Nds.backgroundDefault,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Space.xl,
+              vertical: Space.x5l,
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Form(
+                key: _formKey,
+                child: AutofillGroup(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Center(child: KkuLogo(width: 176)),
+                      const SizedBox(height: Space.x2l),
+                      Text(
+                        'نظام النقل الجامعي للطالبات',
+                        textAlign: TextAlign.center,
+                        style: NdsText.displayXs.copyWith(
+                          color: Nds.textDisplay,
+                        ),
+                      ),
+                      const SizedBox(height: Space.xs),
+                      Text(
+                        'للطالبات والسائقين والمشرفين ومسؤولي النظام',
+                        textAlign: TextAlign.center,
+                        style: NdsText.textSm.copyWith(
+                          color: Nds.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: Space.x5l),
+                      NdsField(
+                        label: 'رمز الجامعة',
+                        controller: _tenantController,
+                        icon: HugeIcons.strokeRoundedUniversity,
+                        textDirection: TextDirection.ltr,
+                        textInputAction: TextInputAction.next,
+                        helper: 'اتركه فارغاً لحساب إدارة المنصة',
+                        // Optional: university accounts require it; platform accounts leave it blank.
+                      ),
+                      const SizedBox(height: Space.x2l),
+                      NdsField(
+                        label: 'رقم الجوال',
+                        controller: _phoneController,
+                        icon: HugeIcons.strokeRoundedSmartPhone01,
+                        hint: '05XXXXXXXX',
+                        textDirection: TextDirection.ltr,
+                        keyboardType: TextInputType.phone,
+                        textInputAction: TextInputAction.next,
+                        autofillHints: const [AutofillHints.telephoneNumber],
+                        validator: (v) => (v == null || v.trim().length < 9)
+                            ? 'رقم جوال غير صحيح'
+                            : null,
+                      ),
+                      const SizedBox(height: Space.x2l),
+                      NdsField(
+                        label: 'كلمة المرور',
+                        controller: _passwordController,
+                        icon: HugeIcons.strokeRoundedLockPassword,
+                        obscureText: true,
+                        textInputAction: TextInputAction.done,
+                        autofillHints: const [AutofillHints.password],
+                        validator: (v) =>
+                            (v == null || v.isEmpty) ? 'مطلوب' : null,
+                        onFieldSubmitted: (_) {
+                          if (!auth.busy) _submit();
+                        },
+                      ),
+                      const SizedBox(height: Space.x3l),
+                      ElevatedButton.icon(
+                        onPressed: auth.busy ? null : _submit,
+                        icon: auth.busy
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Nds.textSecondary,
+                                ),
+                              )
+                            : const AppIcon(
+                                HugeIcons.strokeRoundedLogin01,
+                                size: 20,
+                              ),
+                        label: const Text('تسجيل الدخول'),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'وصــل',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 34,
-                      fontWeight: FontWeight.w800,
-                      color: WaslColors.navy,
-                    ),
-                  ),
-                  const Text(
-                    'النقل الجامعي للطالبات',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: WaslColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  TextFormField(
-                    controller: _tenantController,
-                    textDirection: TextDirection.ltr,
-                    decoration: const InputDecoration(
-                      labelText: 'رمز الجامعة',
-                      hintText: 'اتركه فارغاً لحساب المنصة',
-                      prefixIcon: Icon(Icons.account_balance),
-                    ),
-                    // Optional: university accounts require it; platform accounts leave it blank.
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _phoneController,
-                    textDirection: TextDirection.ltr,
-                    keyboardType: TextInputType.phone,
-                    decoration: const InputDecoration(
-                      labelText: 'رقم الجوال',
-                      hintText: '05XXXXXXXX',
-                      prefixIcon: Icon(Icons.phone),
-                    ),
-                    validator: (v) => (v == null || v.trim().length < 9)
-                        ? 'رقم جوال غير صحيح'
-                        : null,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: 'كلمة المرور',
-                      prefixIcon: Icon(Icons.lock),
-                    ),
-                    validator: (v) => (v == null || v.isEmpty) ? 'مطلوب' : null,
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: auth.busy ? null : _submit,
-                    child: auth.busy
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text('تسجيل الدخول'),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
