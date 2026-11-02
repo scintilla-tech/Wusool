@@ -53,6 +53,16 @@ class DriverTrip {
   int get absent =>
       students.where((student) => student.attendanceIntent == 'ABSENT').length;
   int get unregistered => students.length - attending - absent;
+  bool get isCompleted => status == 'COMPLETED';
+  int get boarded => _withStatus('BOARDED');
+  int get notReady => _withStatus('NOT_READY');
+  int get missed => _withStatus('MISSED');
+
+  /// Students expected on the bus: everyone not marked absent.
+  int get expected => students.length - absent;
+
+  int _withStatus(String value) =>
+      students.where((student) => student.status == value).length;
 
   factory DriverTrip.fromJson(Map<String, dynamic> json) {
     final route = json['route'];
