@@ -27,6 +27,7 @@ class SupervisorBusItem extends StatelessWidget {
         if (bus.name != null && bus.name != bus.plateNumber)
           ltr(bus.plateNumber),
         ?bus.routeName,
+        if (bus.tripDirection != null) directionLabel(bus.tripDirection!),
       ].join(' · '),
       trailing: NdsTag(
         tripStatusLabel(bus.tripStatus),

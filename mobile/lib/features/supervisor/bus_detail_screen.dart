@@ -60,7 +60,9 @@ class BusDetailScreen extends ConsumerWidget {
             )
           else ...[
             Section(
-              title: 'صعود الطالبات',
+              title: bus.tripDirection == null
+                  ? 'صعود الطالبات'
+                  : 'صعود الطالبات · ${directionLabel(bus.tripDirection!)}',
               children: [
                 NdsGrid(
                   columns: 4,
