@@ -21,7 +21,7 @@ describe('student home location validation', () => {
       'self register',
       registerSchema,
       {
-        tenantCode: 'KSU',
+        tenantCode: 'KKU',
         firstName: 'Noor',
         lastName: 'Ali',
         phone: '0551234567',

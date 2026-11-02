@@ -39,7 +39,7 @@ Start the backend and seed demo data as described in `docs/RUN_INSTRUCTIONS.md`.
 synthetic credentials and all role phone numbers are stored in ignored
 `backend/.env.demo.local`; tracked documentation intentionally does not contain passwords.
 
-Use tenant `KSU` for university roles; the platform administrator leaves the tenant blank.
+Use tenant `KKU` for university roles; the platform administrator leaves the tenant blank.
 
 ## Structure
 

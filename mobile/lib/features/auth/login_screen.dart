@@ -13,7 +13,7 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _tenantController = TextEditingController(text: 'KSU');
+  final _tenantController = TextEditingController(text: 'KKU');
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
 

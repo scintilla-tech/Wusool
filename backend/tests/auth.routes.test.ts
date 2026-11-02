@@ -32,7 +32,7 @@ function makePrisma(overrides: Record<string, unknown> = {}) {
   };
   const deviceToken = { updateMany: vi.fn().mockResolvedValue({ count: 1 }) };
   return {
-    tenant: { findUnique: vi.fn().mockResolvedValue({ id: 't1', code: 'KSU', isActive: true }) },
+    tenant: { findUnique: vi.fn().mockResolvedValue({ id: 't1', code: 'KKU', isActive: true }) },
     user: { findUnique: vi.fn().mockResolvedValue(mockUser) },
     refreshSession,
     deviceToken,
@@ -69,7 +69,7 @@ describe('auth routes', () => {
       const app = await buildApp(prisma);
       const res = await request(app)
         .post('/api/v1/auth/login')
-        .send({ tenantCode: 'KSU', phone: '0551234567', password: PASSWORD });
+        .send({ tenantCode: 'KKU', phone: '0551234567', password: PASSWORD });
 
       expect(res.status).toBe(200);
       expect(res.body.data.accessToken).toBeTruthy();
@@ -97,7 +97,7 @@ describe('auth routes', () => {
       const app = await buildApp(prisma);
       const res = await request(app)
         .post('/api/v1/auth/login')
-        .send({ tenantCode: 'KSU', phone: '0551234567', password: PASSWORD });
+        .send({ tenantCode: 'KKU', phone: '0551234567', password: PASSWORD });
 
       expect(res.status).toBe(401);
       expect(res.body.error.code).toBe('INVALID_CREDENTIALS');
@@ -121,7 +121,7 @@ describe('auth routes', () => {
       const app = await buildApp(makePrisma());
       const res = await request(app)
         .post('/api/v1/auth/login')
-        .send({ tenantCode: 'KSU', phone: '0551234567', password: PASSWORD, role: 'STUDENT' });
+        .send({ tenantCode: 'KKU', phone: '0551234567', password: PASSWORD, role: 'STUDENT' });
 
       expect(res.status).toBe(400);
       expect(res.body.error.code).toBe('VALIDATION_ERROR');

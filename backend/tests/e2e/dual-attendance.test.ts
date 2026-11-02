@@ -102,7 +102,7 @@ suite('dual attendance local PostgreSQL workflow', () => {
   async function login(phone: string, password: string): Promise<Login> {
     const response = await request(origin)
       .post('/api/v1/auth/login')
-      .send({ tenantCode: 'KSU', phone, password });
+      .send({ tenantCode: 'KKU', phone, password });
     expect(response.status).toBe(200);
     return response.body.data as Login;
   }
