@@ -1,7 +1,7 @@
 // Shared k6 configuration for WASL load tests.
 export const BASE_URL = __ENV.API_BASE_URL || 'http://localhost:3100/api/v1';
 
-export const TENANT_CODE = __ENV.WASL_TENANT || 'KSU';
+export const TENANT_CODE = __ENV.WASL_TENANT || 'KKU';
 
 // Development demo credentials (see backend/prisma/seed.ts). Never use real accounts.
 export const CREDENTIALS = {

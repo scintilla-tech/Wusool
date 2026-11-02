@@ -92,7 +92,7 @@ suite('local database-backed WUSOOL journey', () => {
     if (!password) throw new Error('DEMO_PASSWORD is required for local E2E');
     const response = await request(origin)
       .post('/api/v1/auth/login')
-      .send({ tenantCode: 'KSU', phone, password });
+      .send({ tenantCode: 'KKU', phone, password });
     expect(response.status).toBe(200);
     return response.body.data as Login;
   };
@@ -220,7 +220,7 @@ suite('local database-backed WUSOOL journey', () => {
     expect(monitored.body.data).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          bus: expect.objectContaining({ plateNumber: 'KSU-1003' }),
+          bus: expect.objectContaining({ plateNumber: 'KKU-1003' }),
           trip: expect.objectContaining({ id: demoTripId, status: 'IN_PROGRESS' }),
         }),
       ]),

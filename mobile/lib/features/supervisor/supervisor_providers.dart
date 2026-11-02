@@ -8,6 +8,7 @@ class SupervisorBusView {
   final String? name;
   final String? tripId;
   final String? tripStatus;
+  final String? tripDirection;
   final String? routeName;
   final int total;
   final int boarded;
@@ -22,6 +23,7 @@ class SupervisorBusView {
     this.name,
     this.tripId,
     this.tripStatus,
+    this.tripDirection,
     this.routeName,
     this.total = 0,
     this.boarded = 0,
@@ -45,6 +47,7 @@ class SupervisorBusView {
       name: bus is Map ? bus['name'] as String? : null,
       tripId: trip is Map ? trip['id'] as String? : null,
       tripStatus: trip is Map ? trip['status'] as String? : null,
+      tripDirection: trip is Map ? trip['direction'] as String? : null,
       routeName: trip is Map ? trip['routeName'] as String? : null,
       total: c('total'),
       boarded: c('boarded'),

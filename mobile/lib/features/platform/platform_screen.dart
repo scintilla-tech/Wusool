@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 
+import '../../core/labels.dart';
 import '../../core/theme.dart';
+import '../../core/ui.dart';
 import '../auth/auth_state.dart';
 import 'platform_providers.dart';
 
@@ -13,66 +16,76 @@ class PlatformScreen extends ConsumerWidget {
     final async = ref.watch(platformTenantsProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('إدارة المنصة'),
+      appBar: BrandBar(
+        title: 'إدارة المنصة',
+        subtitle: 'نظام النقل الجامعي للطالبات',
+        showLogo: false,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () => ref.invalidate(platformTenantsProvider),
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
+          CircleIconButton(
+            icon: HugeIcons.strokeRoundedLogout01,
+            tooltip: 'تسجيل الخروج',
             onPressed: () => ref.read(authProvider.notifier).logout(),
           ),
         ],
       ),
       body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Text('تعذر تحميل الجامعات\n$e', textAlign: TextAlign.center),
-        ),
-        data: (tenants) {
-          if (tenants.isEmpty) {
-            return const Center(child: Text('لا توجد جامعات'));
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.all(12),
-            itemCount: tenants.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 8),
-            itemBuilder: (context, i) {
-              final t = tenants[i];
-              return Card(
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: t.isActive
-                        ? WaslColors.navy
-                        : WaslColors.textSecondary,
-                    child: const Icon(
-                      Icons.account_balance,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                  title: Text(t.name),
-                  subtitle: Text(
-                    'الرمز: ${t.code} • المستخدمون: ${t.users} • الحافلات: ${t.buses}',
-                  ),
-                  trailing: t.isActive
-                      ? const Icon(
-                          Icons.check_circle,
-                          color: WaslColors.success,
-                          size: 20,
-                        )
-                      : const Icon(
-                          Icons.cancel,
-                          color: WaslColors.danger,
-                          size: 20,
-                        ),
+        loading: () => const LoadingView(),
+        error: (_, _) =>
+            ErrorView(onRetry: () => ref.invalidate(platformTenantsProvider)),
+        data: (tenants) => PageBody(
+          onRefresh: () async {
+            ref.invalidate(platformTenantsProvider);
+            await ref.read(platformTenantsProvider.future);
+          },
+          children: [
+            const PageHeading(
+              'الجامعات',
+              lead: 'الجامعات المشتركة في نظام النقل وحالة كل منها.',
+            ),
+            NdsGrid(
+              columns: 3,
+              children: [
+                StatTile(value: '${tenants.length}', label: 'الجامعات'),
+                StatTile(
+                  value: '${tenants.where((t) => t.isActive).length}',
+                  label: 'نشطة',
+                  color: Nds.textSuccess,
                 ),
-              );
-            },
-          );
-        },
+                StatTile(
+                  value: '${tenants.fold(0, (sum, t) => sum + t.users)}',
+                  label: 'المستخدمون',
+                ),
+              ],
+            ),
+            if (tenants.isEmpty)
+              const MessageView(
+                icon: HugeIcons.strokeRoundedUniversity,
+                title: 'لا توجد جامعات',
+              )
+            else
+              NdsGroup(
+                children: [
+                  for (final tenant in tenants)
+                    NdsListItem(
+                      leading: FeaturedIcon(
+                        HugeIcons.strokeRoundedUniversity,
+                        tone: tenant.isActive ? Tone.primary : Tone.neutral,
+                      ),
+                      title: tenant.name,
+                      titleBadge: NdsTag(
+                        tenant.isActive ? 'نشطة' : 'موقوفة',
+                        status: tenant.isActive
+                            ? TagStatus.success
+                            : TagStatus.error,
+                      ),
+                      meta: 'الرمز: ${ltr(tenant.code)}',
+                      meta2:
+                          '${tenant.users} مستخدم · ${busCount(tenant.buses)}',
+                    ),
+                ],
+              ),
+          ],
+        ),
       ),
     );
   }

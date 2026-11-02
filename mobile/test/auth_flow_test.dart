@@ -141,6 +141,7 @@ void main() {
       final fields = find.byType(TextFormField);
       await tester.enterText(fields.at(1), '+966500000101');
       await tester.enterText(fields.at(2), 'test-password');
+      await tester.ensureVisible(find.text('تسجيل الدخول'));
       await tester.tap(find.text('تسجيل الدخول'));
       await tester.pumpAndSettle();
 
@@ -159,6 +160,7 @@ void main() {
     final fields = find.byType(TextFormField);
     await tester.enterText(fields.at(1), '+966500000101');
     await tester.enterText(fields.at(2), 'wrong-password');
+    await tester.ensureVisible(find.text('تسجيل الدخول'));
     await tester.tap(find.text('تسجيل الدخول'));
     await tester.pumpAndSettle();
 

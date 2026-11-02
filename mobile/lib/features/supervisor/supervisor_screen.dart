@@ -1,209 +1,71 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 
-import '../../core/theme.dart';
+import '../../core/ui.dart';
 import '../auth/auth_state.dart';
+import '../home/account_screen.dart';
+import 'field_bus_list_screen.dart';
+import 'supervisor_dashboard_screen.dart';
 import 'supervisor_providers.dart';
 
-class SupervisorScreen extends ConsumerWidget {
+/// Shell for bus supervisors and field supervisors. Field supervisors get
+/// an extra tab with the searchable list of all buses.
+class SupervisorScreen extends ConsumerStatefulWidget {
   const SupervisorScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(supervisorBusesProvider);
+  ConsumerState<SupervisorScreen> createState() => _SupervisorScreenState();
+}
+
+class _SupervisorScreenState extends ConsumerState<SupervisorScreen> {
+  int _index = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final field = ref.watch(authProvider).user?.role == 'FIELD_SUPERVISOR';
+    final buses = ref.watch(supervisorBusesProvider).value;
+    final account = AccountScreen(
+      roleLabel: field
+          ? 'مشرفة ميدانية · جامعة الملك خالد'
+          : 'مشرفة حافلات · جامعة الملك خالد',
+      details: [
+        if (buses != null)
+          KvEntry(
+            field ? 'الحافلات المتابَعة' : 'الحافلات المسندة',
+            '${buses.length}',
+          ),
+      ],
+    );
+
+    final screens = field
+        ? [
+            SupervisorDashboardScreen(
+              field: true,
+              onShowBuses: () => setState(() => _index = 1),
+            ),
+            const FieldBusListScreen(),
+            account,
+          ]
+        : [const SupervisorDashboardScreen(field: false), account];
+    final tabs = field
+        ? const [
+            NdsTabItem(HugeIcons.strokeRoundedDashboardSquare01, 'الرئيسية'),
+            NdsTabItem(HugeIcons.strokeRoundedBus01, 'الحافلات'),
+            NdsTabItem(HugeIcons.strokeRoundedUserCircle, 'الحساب'),
+          ]
+        : const [
+            NdsTabItem(HugeIcons.strokeRoundedHome01, 'الرئيسية'),
+            NdsTabItem(HugeIcons.strokeRoundedUserCircle, 'الحساب'),
+          ];
+    final index = _index.clamp(0, screens.length - 1);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('لوحة المشرفة'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () => ref.invalidate(supervisorBusesProvider),
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => ref.read(authProvider.notifier).logout(),
-          ),
-        ],
-      ),
-      body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Text('تعذر تحميل الحافلات\n$e', textAlign: TextAlign.center),
-        ),
-        data: (buses) {
-          if (buses.isEmpty) {
-            return const Center(child: Text('لا توجد حافلات مسندة إليك'));
-          }
-          return RefreshIndicator(
-            onRefresh: () async => ref.invalidate(supervisorBusesProvider),
-            child: ListView.builder(
-              padding: const EdgeInsets.all(12),
-              itemCount: buses.length,
-              itemBuilder: (context, i) => _BusCard(bus: buses[i]),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _BusCard extends StatelessWidget {
-  final SupervisorBusView bus;
-  const _BusCard({required this.bus});
-
-  @override
-  Widget build(BuildContext context) {
-    final statusColor = switch (bus.tripStatus) {
-      'IN_PROGRESS' => WaslColors.emerald,
-      'COMPLETED' => WaslColors.textSecondary,
-      'SCHEDULED' => WaslColors.navy,
-      _ => WaslColors.textSecondary,
-    };
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.directions_bus, color: WaslColors.navy),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    bus.name ?? bus.plateNumber,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    _tripLabel(bus.tripStatus),
-                    style: TextStyle(
-                      color: statusColor,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${bus.plateNumber}${bus.routeName != null ? ' • ${bus.routeName}' : ''}',
-              style: const TextStyle(color: WaslColors.textSecondary),
-            ),
-            if (bus.hasTrip) ...[
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  _Count(
-                    label: 'إجمالي',
-                    value: bus.total,
-                    color: WaslColors.navy,
-                  ),
-                  _Count(
-                    label: 'صعدن',
-                    value: bus.boarded,
-                    color: WaslColors.success,
-                  ),
-                  _Count(
-                    label: 'متأخرات',
-                    value: bus.notReady,
-                    color: WaslColors.warning,
-                  ),
-                  _Count(
-                    label: 'لم يحضرن',
-                    value: bus.missed,
-                    color: WaslColors.danger,
-                  ),
-                ],
-              ),
-              const Divider(height: 24),
-              ...bus.attendanceSessions.map(
-                (session) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          session.direction == 'OUTBOUND'
-                              ? 'تحضير الذهاب'
-                              : 'تحضير العودة',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                      Text(
-                        '${session.attending} حاضرة • ${session.absent} غائبة • ${session.unregistered} معلقة',
-                      ),
-                      const SizedBox(width: 8),
-                      Chip(
-                        label: Text(
-                          session.status == 'CLOSED' ? 'مغلق' : 'مفتوح',
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _tripLabel(String? status) {
-    return switch (status) {
-      'SCHEDULED' => 'مجدولة',
-      'IN_PROGRESS' => 'جارية',
-      'COMPLETED' => 'مكتملة',
-      _ => 'لا رحلة',
-    };
-  }
-}
-
-class _Count extends StatelessWidget {
-  final String label;
-  final int value;
-  final Color color;
-
-  const _Count({required this.label, required this.value, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        children: [
-          Text(
-            '$value',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: color,
-            ),
-          ),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              color: WaslColors.textSecondary,
-            ),
-          ),
-        ],
+      body: IndexedStack(index: index, children: screens),
+      bottomNavigationBar: NdsTabBar(
+        currentIndex: index,
+        onTap: (value) => setState(() => _index = value),
+        items: tabs,
       ),
     );
   }

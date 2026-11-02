@@ -25,6 +25,7 @@ class WaslApp extends ConsumerWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
       theme: buildTheme(),
+      scrollBehavior: const AppScrollBehavior(),
       home: _buildHome(auth),
     );
   }

@@ -31,7 +31,7 @@ Override the target/credentials via env vars:
 
 ```bash
 k6 run -e API_BASE_URL=http://localhost:3100/api/v1 \
-       -e WASL_TENANT=KSU \
+       -e WASL_TENANT=KKU \
        -e WASL_STUDENT_PHONE=+966551000001 backend/load/burst.js
 ```
 

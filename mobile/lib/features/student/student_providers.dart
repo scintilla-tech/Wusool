@@ -156,3 +156,12 @@ final studentProfileProvider = FutureProvider.autoDispose<StudentProfile>((
     data is Map<String, dynamic> ? data : const {},
   );
 });
+
+/// The student's own boarding status on today's trip.
+String boardingStatusLabel(String? status) => switch (status) {
+  'WAITING' => 'بانتظار صعودك',
+  'BOARDED' => 'صعدتِ الحافلة',
+  'NOT_READY' => 'سُجّلتِ غير جاهزة',
+  'MISSED' => 'فاتتكِ الحافلة',
+  _ => 'لم تُسجَّل بعد',
+};

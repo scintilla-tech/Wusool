@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wasl_mobile/features/driver/driver_providers.dart';
 import 'package:wasl_mobile/features/student/student_providers.dart';
+import 'package:wasl_mobile/features/supervisor/supervisor_providers.dart';
 
 void main() {
   test(
@@ -77,4 +78,14 @@ void main() {
       expect(trip.students.last.attendanceIntent, isNull);
     },
   );
+
+  test('supervisor bus card knows which direction its trip runs', () {
+    final bus = SupervisorBusView.fromJson({
+      'bus': {'id': 'b1', 'plateNumber': 'KKU-1003'},
+      'trip': {'id': 't1', 'status': 'IN_PROGRESS', 'direction': 'RETURN'},
+      'counts': {'total': 5},
+    });
+
+    expect(bus.tripDirection, 'RETURN');
+  });
 }

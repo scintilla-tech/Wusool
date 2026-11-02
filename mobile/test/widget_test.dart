@@ -38,8 +38,9 @@ void main() {
     expect(find.text('تسجيل الدخول'), findsWidgets);
   });
 
-  testWidgets('theme defines the WASL navy primary color', (tester) async {
+  testWidgets('theme uses the NDS primary green', (tester) async {
     final theme = buildTheme();
-    expect(theme.colorScheme.primary, WaslColors.navy);
+    expect(theme.colorScheme.primary, NdsColors.primary600);
+    expect(theme.textTheme.bodyMedium?.fontFamily, Nds.fontFamily);
   });
 }

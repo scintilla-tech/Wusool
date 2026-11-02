@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 
-import '../../core/theme.dart';
+import '../../core/ui.dart';
 import '../admin/admin_shell.dart';
 import '../auth/auth_state.dart';
 import '../driver/driver_screen.dart';
@@ -33,47 +34,25 @@ class HomeScreen extends ConsumerWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('وصــل'),
+      appBar: BrandBar(
+        title: 'نظام النقل الجامعي للطالبات',
+        subtitle: _roleLabel(user?.role),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
+          CircleIconButton(
+            icon: HugeIcons.strokeRoundedLogout01,
+            tooltip: 'تسجيل الخروج',
             onPressed: () => ref.read(authProvider.notifier).logout(),
           ),
         ],
       ),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.directions_bus,
-              size: 72,
-              color: WaslColors.emerald,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'مرحباً، ${user?.firstName ?? ''}',
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _roleLabel(user?.role),
-              style: const TextStyle(
-                fontSize: 15,
-                color: WaslColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 32),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 32),
-              child: Text(
-                'قيد التطوير — ستظهر شاشات الدور هنا قريباً.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: WaslColors.textSecondary),
-              ),
-            ),
-          ],
+        child: SingleChildScrollView(
+          child: MessageView(
+            icon: HugeIcons.strokeRoundedBus01,
+            tone: Tone.primary,
+            title: 'مرحباً، ${user?.firstName ?? ''}',
+            message: 'لا تتوفر شاشات لهذا الدور بعد.',
+          ),
         ),
       ),
     );

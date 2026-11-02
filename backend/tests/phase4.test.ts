@@ -35,7 +35,7 @@ describe('student registration + verification', () => {
     const service = new StudentSelfService(
       prisma({
         tenant: {
-          findUnique: vi.fn().mockResolvedValue({ id: 't1', code: 'KSU', isActive: true }),
+          findUnique: vi.fn().mockResolvedValue({ id: 't1', code: 'KKU', isActive: true }),
         },
         $transaction: vi.fn(async (fn: (c: unknown) => unknown) => fn(tx)),
       }),
@@ -44,7 +44,7 @@ describe('student registration + verification', () => {
     );
 
     const result = await service.register({
-      tenantCode: 'KSU',
+      tenantCode: 'KKU',
       firstName: 'Noor',
       lastName: 'Ali',
       phone: '+966551234567',

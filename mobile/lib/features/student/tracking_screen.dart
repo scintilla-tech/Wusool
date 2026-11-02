@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../core/api_client.dart';
 import '../../core/socket_service.dart';
 import '../../core/theme.dart';
+import '../../core/ui.dart';
 import 'student_providers.dart';
 
 class TrackingScreen extends ConsumerWidget {
@@ -14,87 +16,152 @@ class TrackingScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(studentTripProvider);
+    final refresh = CircleIconButton(
+      icon: HugeIcons.strokeRoundedRefresh,
+      tooltip: 'تحديث',
+      onPressed: () => ref.invalidate(studentTripProvider),
+    );
 
     return Scaffold(
-      appBar: AppBar(title: const Text('التتبع')),
+      appBar: NdsAppBar(title: 'تتبع الحافلة', trailing: refresh),
       body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Text(
-            'تعذر تحميل حالة الرحلة\n$e',
-            textAlign: TextAlign.center,
-          ),
-        ),
+        loading: () => const LoadingView(),
+        error: (_, _) =>
+            ErrorView(onRetry: () => ref.invalidate(studentTripProvider)),
         data: (trip) {
           if (!trip.hasActiveTrip) {
-            return const _WaitingState(
-              icon: Icons.schedule,
-              title: 'لا توجد رحلة اليوم',
-              subtitle: 'سيظهر التتبع هنا عند بدء رحلة الصباح.',
+            return const _TrackingLayout(
+              map: MapPlaceholder(
+                text: 'سيظهر موقع الحافلة هنا عند انطلاق رحلتك',
+              ),
+              caption: 'رحلة اليوم',
+              headline: 'لا توجد رحلة اليوم',
+              detail: 'سيظهر التتبع هنا عند جدولة رحلتك.',
             );
           }
           if (!trip.isInProgress) {
-            return const _WaitingState(
-              icon: Icons.hourglass_top,
-              title: 'في انتظار بدء الرحلة',
-              subtitle: 'سيتم إشعارك عند انطلاق الحافلة.',
+            return _TrackingLayout(
+              strip: _TripStrip(trip: trip),
+              map: const MapPlaceholder(
+                text: 'سيظهر موقع الحافلة عند انطلاقها',
+              ),
+              caption: 'حالة الرحلة',
+              headline: 'في انتظار انطلاق الحافلة',
+              detail: 'تظهر الحافلة على الخريطة فور بدء السائق الرحلة.',
             );
           }
-          return _TrackingView(trip: trip);
+          return _LiveTracking(trip: trip);
         },
       ),
     );
   }
 }
 
-class _WaitingState extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
+/// Strip, map and bottom sheet arrangement of the tracking screen.
+class _TrackingLayout extends StatelessWidget {
+  final Widget? strip;
+  final Widget map;
+  final String caption;
+  final String headline;
+  final String detail;
 
-  const _WaitingState({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
+  const _TrackingLayout({
+    this.strip,
+    required this.map,
+    required this.caption,
+    required this.headline,
+    required this.detail,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 64, color: WaslColors.textSecondary),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+    final secondary = NdsText.textSm.copyWith(color: Nds.textSecondary);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ?strip,
+        Expanded(child: map),
+        Container(
+          padding: const EdgeInsets.fromLTRB(
+            Space.xl,
+            Space.x2l,
+            Space.xl,
+            Space.x2l,
+          ),
+          decoration: const BoxDecoration(
+            color: Nds.backgroundDefault,
+            border: Border(top: BorderSide(color: Nds.borderNeutral)),
+          ),
+          child: Semantics(
+            liveRegion: true,
+            child: NdsGroup(
+              gap: Space.xxs,
+              children: [
+                Text(caption, style: secondary),
+                Text(
+                  headline,
+                  style: NdsText.displayXs.copyWith(color: Nds.textDisplay),
+                ),
+                Text(detail, style: secondary),
+              ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: WaslColors.textSecondary),
-            ),
-          ],
+          ),
         ),
+      ],
+    );
+  }
+}
+
+class _TripStrip extends StatelessWidget {
+  final StudentTripView trip;
+
+  const _TripStrip({required this.trip});
+
+  @override
+  Widget build(BuildContext context) {
+    final title = [
+      if (trip.busPlate != null) ltr(trip.busPlate!),
+      ?trip.routeName,
+    ].join(' · ');
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: Space.xl,
+        vertical: Space.md,
+      ),
+      decoration: const BoxDecoration(
+        color: Nds.backgroundDefault,
+        border: Border(bottom: BorderSide(color: Nds.borderNeutral)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              title.isEmpty ? 'رحلة اليوم' : title,
+              style: NdsText.textMd.copyWith(
+                fontWeight: FontWeight.w600,
+                color: Nds.textDisplay,
+              ),
+            ),
+          ),
+          trip.isInProgress
+              ? const NdsTag('في الطريق إليكِ', status: TagStatus.info)
+              : const NdsTag('لم تنطلق بعد'),
+        ],
       ),
     );
   }
 }
 
-class _TrackingView extends ConsumerStatefulWidget {
+class _LiveTracking extends ConsumerStatefulWidget {
   final StudentTripView trip;
 
-  const _TrackingView({required this.trip});
+  const _LiveTracking({required this.trip});
 
   @override
-  ConsumerState<_TrackingView> createState() => _TrackingViewState();
+  ConsumerState<_LiveTracking> createState() => _LiveTrackingState();
 }
 
-class _TrackingViewState extends ConsumerState<_TrackingView> {
+class _LiveTrackingState extends ConsumerState<_LiveTracking> {
   final _socket = SocketService();
   double? _latitude;
   double? _longitude;
@@ -108,7 +175,7 @@ class _TrackingViewState extends ConsumerState<_TrackingView> {
   }
 
   @override
-  void didUpdateWidget(covariant _TrackingView oldWidget) {
+  void didUpdateWidget(covariant _LiveTracking oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.trip.tripId != widget.trip.tripId) {
       _copySnapshot();
@@ -158,98 +225,52 @@ class _TrackingViewState extends ConsumerState<_TrackingView> {
     final hasLocation = _latitude != null && _longitude != null;
     final point = hasLocation
         ? LatLng(_latitude!, _longitude!)
-        : const LatLng(24.7136, 46.6753);
+        : const LatLng(18.2465, 42.5117);
 
-    return Column(
-      children: [
-        Expanded(
-          child: Stack(
-            children: [
-              FlutterMap(
-                options: MapOptions(initialCenter: point, initialZoom: 14),
-                children: [
-                  TileLayer(
-                    urlTemplate:
-                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName: 'com.wasl.wasl_mobile',
-                  ),
-                  if (hasLocation)
-                    MarkerLayer(
-                      markers: [
-                        Marker(
-                          point: point,
-                          width: 44,
-                          height: 44,
-                          child: const Icon(
-                            Icons.directions_bus,
-                            size: 40,
-                            color: WaslColors.navy,
-                          ),
-                        ),
-                      ],
-                    ),
-                ],
-              ),
-              Positioned(
-                top: 12,
-                left: 12,
-                right: 12,
-                child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.directions_bus,
-                          color: WaslColors.emerald,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            '${trip.routeName ?? 'الرحلة'} • ${trip.busPlate ?? ''}',
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                        Text(
-                          hasLocation
-                              ? _freshnessLabel(_updatedAt)
-                              : 'بانتظار الموقع',
-                          style: const TextStyle(
-                            color: WaslColors.textSecondary,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.all(16),
-          color: WaslColors.surface,
-          child: SafeArea(
-            top: false,
-            child: Column(
+    return _TrackingLayout(
+      strip: _TripStrip(trip: trip),
+      map: hasLocation
+          ? FlutterMap(
+              options: MapOptions(initialCenter: point, initialZoom: 14),
               children: [
-                ElevatedButton.icon(
-                  onPressed: null,
-                  icon: const Icon(Icons.call),
-                  label: const Text('اتصال بالسائق — غير متاح حالياً'),
+                TileLayer(
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.wasl.wasl_mobile',
                 ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: null,
-                  icon: const Icon(Icons.support_agent),
-                  label: const Text('التواصل مع المشرفة — غير متاح حالياً'),
+                MarkerLayer(
+                  markers: [
+                    Marker(
+                      point: point,
+                      width: 44,
+                      height: 44,
+                      child: Semantics(
+                        label: 'موقع الحافلة',
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Nds.backgroundPrimaryStrong,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Nds.textOnColor,
+                              width: 2,
+                            ),
+                          ),
+                          alignment: Alignment.center,
+                          child: const AppIcon(
+                            HugeIcons.strokeRoundedBus01,
+                            size: 22,
+                            color: Nds.textOnColor,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
-            ),
-          ),
-        ),
-      ],
+            )
+          : const MapPlaceholder(text: 'بانتظار أول موقع من الحافلة'),
+      caption: 'آخر تحديث لموقع الحافلة',
+      headline: hasLocation ? _freshnessLabel(_updatedAt) : 'بانتظار الموقع',
+      detail: boardingStatusLabel(trip.myStatus),
     );
   }
 

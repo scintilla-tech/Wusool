@@ -38,9 +38,9 @@ const LEGACY_STUDENT_PASSWORD = required('LEGACY_STUDENT_PASSWORD');
 
 async function upsertTenant() {
   return prisma.tenant.upsert({
-    where: { code: 'KSU' },
+    where: { code: 'KKU' },
     update: {},
-    create: { code: 'KSU', name: 'King Saud University' },
+    create: { code: 'KKU', name: 'King Khalid University' },
   });
 }
 
@@ -204,7 +204,7 @@ async function main(): Promise<void> {
   }
 
   // Buses
-  const buses = ['KSU-1001', 'KSU-1002', 'KSU-1003', 'KSU-1004'];
+  const buses = ['KKU-1001', 'KKU-1002', 'KKU-1003', 'KKU-1004'];
   const busIds: Record<string, string> = {};
   for (const plate of buses) {
     const bus = await prisma.bus.upsert({
@@ -219,7 +219,7 @@ async function main(): Promise<void> {
   await upsertUser(t, {
     role: 'UNIVERSITY_ADMIN',
     firstName: 'Admin',
-    lastName: 'KSU',
+    lastName: 'KKU',
     phone: '+966501111111',
     password: LEGACY_ADMIN_PASSWORD,
   });
@@ -265,10 +265,10 @@ async function main(): Promise<void> {
   // Driver/supervisor assignments to buses
   await prisma.driverAssignment.updateMany({ where: { tenantId: t }, data: { isActive: false } });
   await prisma.driverAssignment.create({
-    data: { tenantId: t, driverProfileId: driver1.id, busId: busIds['KSU-1001'], isActive: true },
+    data: { tenantId: t, driverProfileId: driver1.id, busId: busIds['KKU-1001'], isActive: true },
   });
   await prisma.driverAssignment.create({
-    data: { tenantId: t, driverProfileId: driver2.id, busId: busIds['KSU-1002'], isActive: true },
+    data: { tenantId: t, driverProfileId: driver2.id, busId: busIds['KKU-1002'], isActive: true },
   });
   await prisma.supervisorBusAssignment.updateMany({
     where: { tenantId: t },
@@ -278,7 +278,7 @@ async function main(): Promise<void> {
     data: {
       tenantId: t,
       supervisorProfileId: supervisor.id,
-      busId: busIds['KSU-1001'],
+      busId: busIds['KKU-1001'],
       isActive: true,
     },
   });
@@ -359,7 +359,7 @@ async function main(): Promise<void> {
   });
   await upsertDemoAttendance(t, route1.id, demoStudentProfile.id, demoStudentUser.id, today);
 
-  // 2. Driver (active driver of demo bus KSU-1003)
+  // 2. Driver (active driver of demo bus KKU-1003)
   const demoDriverUser = await upsertDemoUser('demo-user-driver-nejood', {
     role: 'DRIVER',
     phone: '+966500000102',
@@ -377,22 +377,22 @@ async function main(): Promise<void> {
     },
   });
   await prisma.driverAssignment.updateMany({
-    where: { tenantId: t, busId: busIds['KSU-1003'], isActive: true },
+    where: { tenantId: t, busId: busIds['KKU-1003'], isActive: true },
     data: { isActive: false },
   });
   await prisma.driverAssignment.upsert({
     where: { id: 'demo-da-nejood' },
-    update: { driverProfileId: demoDriverProfile.id, busId: busIds['KSU-1003'], isActive: true },
+    update: { driverProfileId: demoDriverProfile.id, busId: busIds['KKU-1003'], isActive: true },
     create: {
       id: 'demo-da-nejood',
       tenantId: t,
       driverProfileId: demoDriverProfile.id,
-      busId: busIds['KSU-1003'],
+      busId: busIds['KKU-1003'],
       isActive: true,
     },
   });
 
-  // 3. Supervisor (same demo bus KSU-1003)
+  // 3. Supervisor (same demo bus KKU-1003)
   const demoSupervisorUser = await upsertDemoUser('demo-user-supervisor-nejood', {
     role: 'SUPERVISOR',
     phone: '+966500000103',
@@ -410,21 +410,21 @@ async function main(): Promise<void> {
     },
   });
   await prisma.supervisorBusAssignment.updateMany({
-    where: { tenantId: t, busId: busIds['KSU-1003'], isActive: true },
+    where: { tenantId: t, busId: busIds['KKU-1003'], isActive: true },
     data: { isActive: false },
   });
   await prisma.supervisorBusAssignment.upsert({
     where: { id: 'demo-sba-nejood' },
     update: {
       supervisorProfileId: demoSupervisorProfile.id,
-      busId: busIds['KSU-1003'],
+      busId: busIds['KKU-1003'],
       isActive: true,
     },
     create: {
       id: 'demo-sba-nejood',
       tenantId: t,
       supervisorProfileId: demoSupervisorProfile.id,
-      busId: busIds['KSU-1003'],
+      busId: busIds['KKU-1003'],
       isActive: true,
     },
   });
@@ -477,7 +477,7 @@ async function main(): Promise<void> {
       id: 'demo-trip-nejood',
       tenantId: t,
       routeId: route1.id,
-      busId: busIds['KSU-1003'],
+      busId: busIds['KKU-1003'],
       driverProfileId: demoDriverProfile.id,
       tripDate: today,
       direction: 'OUTBOUND',
@@ -520,7 +520,7 @@ async function main(): Promise<void> {
       id: 'demo-trip-return-nejood',
       tenantId: t,
       routeId: route1.id,
-      busId: busIds['KSU-1003'],
+      busId: busIds['KKU-1003'],
       driverProfileId: demoDriverProfile.id,
       tripDate: today,
       direction: 'RETURN',
@@ -612,7 +612,7 @@ async function main(): Promise<void> {
   }
 
   console.log('Demo seed complete.');
-  console.log('Persistent per-role demo identities created for tenant KSU.');
+  console.log('Persistent per-role demo identities created for tenant KKU.');
   console.log('  STUDENT            +966500000101  (university id 440000001)');
   console.log('  DRIVER             +966500000102  (employee DRV-NEJOOD-01)');
   console.log('  SUPERVISOR         +966500000103  (employee SUP-NEJOOD-01)');

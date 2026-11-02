@@ -4,7 +4,7 @@ import { dateOnly } from '../../utils/date';
 
 export interface SupervisorBusView {
   bus: { id: string; plateNumber: string; name: string | null };
-  trip: { id: string; status: string; routeName: string | null } | null;
+  trip: { id: string; status: string; direction: string; routeName: string | null } | null;
   counts: { total: number; boarded: number; missed: number; waiting: number; notReady: number };
   attendanceSessions: Array<{
     direction: string;
@@ -13,6 +13,22 @@ export interface SupervisorBusView {
     absent: number;
     unregistered: number;
   }>;
+}
+
+/** The trip a bus card follows: the one running, else the last to finish, else the next due. */
+function currentTrip<T extends { status: string; direction: string; completedAt: Date | null }>(
+  trips: T[],
+): T | undefined {
+  const finishedLast = trips
+    .filter((trip) => trip.status === 'COMPLETED')
+    .sort((a, b) => (b.completedAt?.getTime() ?? 0) - (a.completedAt?.getTime() ?? 0))[0];
+  const outboundFirst = [...trips].sort((a, b) => a.direction.localeCompare(b.direction));
+  return (
+    trips.find((trip) => trip.status === 'IN_PROGRESS') ??
+    finishedLast ??
+    outboundFirst.find((trip) => trip.status === 'SCHEDULED') ??
+    outboundFirst[0]
+  );
 }
 
 export class SupervisorService {
@@ -64,6 +80,7 @@ export class SupervisorService {
       select: {
         id: true,
         status: true,
+        completedAt: true,
         busId: true,
         route: { select: { name: true } },
         tripStudents: { select: { status: true } },
@@ -78,13 +95,18 @@ export class SupervisorService {
 
     return buses.map((bus) => {
       const busTrips = byBus.get(bus.id) ?? [];
-      const trip = busTrips.find((candidate) => candidate.direction === 'OUTBOUND') ?? busTrips[0];
+      const trip = currentTrip(busTrips);
       const students = trip?.tripStudents ?? [];
       const count = (s: string) => students.filter((x) => x.status === s).length;
       return {
         bus,
         trip: trip
-          ? { id: trip.id, status: trip.status, routeName: trip.route?.name ?? null }
+          ? {
+              id: trip.id,
+              status: trip.status,
+              direction: trip.direction,
+              routeName: trip.route?.name ?? null,
+            }
           : null,
         counts: {
           total: students.length,
