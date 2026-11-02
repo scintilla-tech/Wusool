@@ -45,6 +45,8 @@ dependencies:
   socket_io_client: ^3.1.6
   geolocator: ^14.0.3
   flutter_secure_storage: ^11.2.0
+  flutter_svg: ^2.3.0
+  hugeicons: ^1.2.0
 
 dev_dependencies:
   flutter_test:
@@ -67,6 +69,23 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    - assets/images/kku_logo.svg
+
+  # IBM Plex Sans Arabic (SIL Open Font License, see assets/fonts/OFL.txt),
+  # the NDS brand typeface used by the redesign.
+  fonts:
+    - family: IBMPlexSansArabic
+      fonts:
+        - asset: assets/fonts/IBMPlexSansArabic-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/IBMPlexSansArabic-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/IBMPlexSansArabic-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/IBMPlexSansArabic-Bold.ttf
+          weight: 700
 
   # To add assets to your application, add an assets section, like this:
   # assets:
