@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Prisma, type PrismaClient } from '@prisma/client';
+import { SupervisorService } from '../src/modules/supervisor/supervisor.service';
 import { TripService } from '../src/modules/trips/trips.service';
 
 function prisma(partial: unknown): PrismaClient {
@@ -194,5 +195,76 @@ describe('trip completion + transport confirmation', () => {
       await service.getDriverToday('tenant1', 'u1');
       expect(findMany.mock.calls[0][0].where.status.in).toEqual(['SCHEDULED', 'IN_PROGRESS']);
     });
+  });
+});
+
+describe('supervisor bus card', () => {
+  const trip = (
+    id: string,
+    direction: 'OUTBOUND' | 'RETURN',
+    status: string,
+    completedAt: Date | null = null,
+  ) => ({
+    id,
+    direction,
+    status,
+    completedAt,
+    busId: 'bus1',
+    route: { name: 'North Loop' },
+    tripStudents: [{ status: id === 'return' ? 'BOARDED' : 'WAITING' }],
+    attendanceSession: null,
+  });
+
+  async function cardFor(trips: ReturnType<typeof trip>[]) {
+    const service = new SupervisorService(
+      prisma({
+        supervisorProfile: { findFirst: vi.fn().mockResolvedValue({ id: 'sp1' }) },
+        supervisorBusAssignment: {
+          findMany: vi
+            .fn()
+            .mockResolvedValue([{ bus: { id: 'bus1', plateNumber: 'KKU-1003', name: null } }]),
+        },
+        dailyTrip: { findMany: vi.fn().mockResolvedValue(trips) },
+      }),
+    );
+    const [card] = await service.getMyBuses('tenant1', 'u1', 'SUPERVISOR');
+    return card;
+  }
+
+  it('follows the return trip while it is running', async () => {
+    const card = await cardFor([
+      trip('outbound', 'OUTBOUND', 'COMPLETED', new Date('2026-11-02T05:00:00Z')),
+      trip('return', 'RETURN', 'IN_PROGRESS'),
+    ]);
+
+    expect(card.trip).toMatchObject({ id: 'return', direction: 'RETURN' });
+    expect(card.counts.boarded).toBe(1);
+  });
+
+  it('keeps showing the finished outbound trip until the return trip starts', async () => {
+    const card = await cardFor([
+      trip('outbound', 'OUTBOUND', 'COMPLETED', new Date('2026-11-02T05:00:00Z')),
+      trip('return', 'RETURN', 'SCHEDULED'),
+    ]);
+
+    expect(card.trip).toMatchObject({ id: 'outbound', status: 'COMPLETED' });
+  });
+
+  it('shows the trip that finished last once both are done', async () => {
+    const card = await cardFor([
+      trip('outbound', 'OUTBOUND', 'COMPLETED', new Date('2026-11-02T05:00:00Z')),
+      trip('return', 'RETURN', 'COMPLETED', new Date('2026-11-02T13:00:00Z')),
+    ]);
+
+    expect(card.trip?.id).toBe('return');
+  });
+
+  it('starts the day on the scheduled outbound trip', async () => {
+    const card = await cardFor([
+      trip('return', 'RETURN', 'SCHEDULED'),
+      trip('outbound', 'OUTBOUND', 'SCHEDULED'),
+    ]);
+
+    expect(card.trip?.id).toBe('outbound');
   });
 });
