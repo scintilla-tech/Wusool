@@ -8,6 +8,22 @@ import type { TripService as TripServiceType } from './trips.service';
 import { AttendanceService } from '../attendance/attendance.service';
 import { closeAttendanceSchema, driverAttendanceSchema } from '../attendance/attendance.schemas';
 import type { TripEventBus } from './trip-events';
+import { z } from 'zod';
+import { idSchema } from '../../validation/common';
+import { createNotificationService } from '../notifications/notification.service';
+import { StructureService } from '../structure/structure.service';
+import { neighborhoodCreateSchema, routeStopIdsSchema } from '../structure/structure.schemas';
+import { DriverRouteService } from './driver-route.service';
+
+const placeName = neighborhoodCreateSchema.shape.name;
+const driverRouteCreateSchema = z
+  .object({
+    name: placeName,
+    branchId: idSchema.nullable().optional(),
+    stopIds: routeStopIdsSchema.min(1),
+  })
+  .strict();
+const driverRouteUpdateSchema = driverRouteCreateSchema.partial().strict();
 
 /** Driver-facing trip workflow. */
 export function createDriverRouter(
@@ -16,6 +32,14 @@ export function createDriverRouter(
   const router = createScopedRouter(deps, ['DRIVER']);
   const service = deps.tripService ?? new TripService(deps.prisma);
   const attendance = new AttendanceService(deps.prisma, deps.tripEvents);
+  const notifications = createNotificationService(deps.prisma);
+  const routes = new DriverRouteService(
+    deps.prisma,
+    new StructureService(deps.prisma),
+    notifications,
+  );
+  const tenantOf = (req: import('express').Request) => req.auth?.tenantId as string;
+  const userOf = (req: import('express').Request) => req.auth?.userId as string;
 
   router.get(
     '/today',
@@ -51,6 +75,41 @@ export function createDriverRouter(
       const tenantId = req.auth?.tenantId as string;
       const data = await service.createTripByDriver(tenantId, req.auth?.userId as string, req.body);
       res.status(201).json({ success: true, data });
+    }),
+  );
+
+  router.get(
+    '/route-options',
+    asyncHandler(async (req, res) => {
+      res.json({ success: true, data: await routes.options(tenantOf(req)) });
+    }),
+  );
+
+  router.post(
+    '/neighborhoods',
+    validate({ body: neighborhoodCreateSchema.pick({ name: true }).strict() }),
+    asyncHandler(async (req, res) => {
+      res
+        .status(201)
+        .json({ success: true, data: await routes.addNeighborhood(tenantOf(req), req.body.name) });
+    }),
+  );
+
+  router.post(
+    '/route',
+    validate({ body: driverRouteCreateSchema }),
+    asyncHandler(async (req, res) => {
+      res
+        .status(201)
+        .json({ success: true, data: await routes.create(tenantOf(req), userOf(req), req.body) });
+    }),
+  );
+
+  router.patch(
+    '/route',
+    validate({ body: driverRouteUpdateSchema }),
+    asyncHandler(async (req, res) => {
+      res.json({ success: true, data: await routes.update(tenantOf(req), userOf(req), req.body) });
     }),
   );
 
