@@ -2,9 +2,8 @@ import { Router } from 'express';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { createAuthenticate } from '../../middlewares/authenticate';
 import { validate } from '../../middlewares/validate';
-import { MockPushProvider } from '../../providers/notifications';
 import { paginationSchema } from '../../validation/common';
-import { NotificationService } from './notification.service';
+import { createNotificationService } from './notification.service';
 import type { ScopeDeps } from '../../middlewares/scope';
 
 export function createNotificationsRouter(deps: ScopeDeps): Router {
@@ -13,7 +12,7 @@ export function createNotificationsRouter(deps: ScopeDeps): Router {
     prisma: deps.prisma,
     accessSecret: deps.config.JWT_ACCESS_SECRET,
   });
-  const service = new NotificationService(deps.prisma, new MockPushProvider());
+  const service = createNotificationService(deps.prisma);
 
   router.get(
     '/',
@@ -24,6 +23,28 @@ export function createNotificationsRouter(deps: ScopeDeps): Router {
       res.json({
         success: true,
         data: await service.listMine(req.auth?.userId as string, q.page, q.limit),
+      });
+    }),
+  );
+
+  router.get(
+    '/unread-count',
+    authenticate,
+    asyncHandler(async (req, res) => {
+      res.json({
+        success: true,
+        data: { count: await service.unreadCount(req.auth?.userId as string) },
+      });
+    }),
+  );
+
+  router.post(
+    '/read-all',
+    authenticate,
+    asyncHandler(async (req, res) => {
+      res.json({
+        success: true,
+        data: { updated: await service.markAllRead(req.auth?.userId as string) },
       });
     }),
   );
