@@ -792,11 +792,16 @@ class NdsTag extends StatelessWidget {
             ),
             const SizedBox(width: Space.xs),
           ],
-          Text(
-            label,
-            style: (small ? NdsText.textXs : NdsText.textSm).copyWith(
-              fontWeight: FontWeight.w500,
-              color: text,
+          // A tag never pushes past the room it is given.
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: (small ? NdsText.textXs : NdsText.textSm).copyWith(
+                fontWeight: FontWeight.w500,
+                color: text,
+              ),
             ),
           ),
         ],
