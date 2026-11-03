@@ -4,6 +4,7 @@ import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/theme.dart';
 import '../../core/ui.dart';
+import 'activation_screen.dart';
 import 'auth_state.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -46,6 +47,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ),
       );
     }
+  }
+
+  void _openActivation() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ActivationScreen(
+          tenantCode: _tenantController.text.trim(),
+          phone: _phoneController.text.trim(),
+        ),
+      ),
+    );
   }
 
   @override
@@ -141,6 +153,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 size: 20,
                               ),
                         label: const Text('تسجيل الدخول'),
+                      ),
+                      const SizedBox(height: Space.lg),
+                      TextButton(
+                        onPressed: auth.busy ? null : _openActivation,
+                        child: const Text('أول دخول؟ تفعيل الحساب برمز تحقق'),
                       ),
                     ],
                   ),

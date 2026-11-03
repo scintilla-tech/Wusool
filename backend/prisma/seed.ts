@@ -214,6 +214,13 @@ async function main(): Promise<void> {
     });
     busIds[plate] = bus.id;
   }
+  // Fixed routes, from which the morning schedule makes each school day's trips.
+  await prisma.bus.updateMany({
+    where: { tenantId: t, routeId: { in: [route1.id, route2.id] } },
+    data: { routeId: null },
+  });
+  await prisma.bus.update({ where: { id: busIds['KKU-1003'] }, data: { routeId: route1.id } });
+  await prisma.bus.update({ where: { id: busIds['KKU-1001'] }, data: { routeId: route2.id } });
 
   // Employees
   await upsertUser(t, {

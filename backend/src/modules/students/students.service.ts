@@ -1,6 +1,5 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { AppError } from '../../utils/appError';
-import { hashPassword } from '../../utils/password';
 import { toPrismaPagination, type Paginated } from '../../utils/pagination';
 import type { StudentCreateInput, StudentUpdateInput } from './students.schemas';
 
@@ -11,6 +10,8 @@ const studentBaseSelect = {
   email: true,
   phone: true,
   isActive: true,
+  // Read only to report whether the account is activated; never returned.
+  passwordHash: true,
 } satisfies Prisma.UserSelect;
 
 // List queries must NOT retrieve sensitive home coordinates.
@@ -34,6 +35,8 @@ interface StudentListDto {
   email: string | null;
   phone: string;
   isActive: boolean;
+  /** False until the student signs in for the first time and sets a password. */
+  isActivated: boolean;
   studentId: string | null;
 }
 
@@ -50,6 +53,7 @@ function toListDto(user: StudentListUser): StudentListDto {
     email: user.email,
     phone: user.phone,
     isActive: user.isActive,
+    isActivated: user.passwordHash !== null,
     studentId: user.studentProfile?.studentId ?? null,
   };
 }
@@ -83,9 +87,8 @@ export class StudentsService {
     return toDetailDto(await this.findStudent(tenantId, id));
   }
 
+  /** The account starts without a password; the student sets one on first sign-in. */
   async create(tenantId: string, input: StudentCreateInput): Promise<StudentDetailDto> {
-    const passwordHash = await hashPassword(input.password);
-
     const user = await this.prisma.$transaction(async (tx) => {
       const created = await tx.user.create({
         data: {
@@ -95,7 +98,6 @@ export class StudentsService {
           lastName: input.lastName,
           email: input.email ?? null,
           phone: input.phone,
-          passwordHash,
         },
       });
       await tx.studentProfile.create({

@@ -9,11 +9,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wasl_mobile/app.dart';
 import 'package:wasl_mobile/core/api_client.dart';
 import 'package:wasl_mobile/core/token_store.dart';
+import 'package:wasl_mobile/features/auth/activation_screen.dart';
 import 'package:wasl_mobile/features/auth/login_screen.dart';
 import 'package:wasl_mobile/features/student/student_shell.dart';
 
 /// Fake HTTP adapter with canned responses so the auth flow can be tested
 /// without a live backend.
+final activationBodies = <Map<String, dynamic>>[];
+
 class _FakeAdapter implements HttpClientAdapter {
   _FakeAdapter({this.loginStatus = 200, this.meStatus = 200});
 
@@ -27,7 +30,17 @@ class _FakeAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     final path = options.path;
-    if (path.contains('/auth/login')) {
+    if (path.contains('/auth/activation/request')) {
+      return _json({
+        'success': true,
+        'data': {'sent': true, 'devOtp': '123456'},
+      });
+    }
+    if (path.contains('/auth/activation/complete')) {
+      activationBodies.add(options.data as Map<String, dynamic>);
+    }
+    if (path.contains('/auth/login') ||
+        path.contains('/auth/activation/complete')) {
       if (loginStatus != 200) {
         return ResponseBody.fromString(
           jsonEncode({
@@ -183,5 +196,41 @@ void main() {
     // Falls back to the login screen instead of hanging on a spinner.
     expect(find.byType(LoginScreen), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
+
+  testWidgets('a first sign-in sets the password with a texted code', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(402, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    activationBodies.clear();
+    await tester.pumpWidget(await _app());
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(1), '0500000101');
+    await tester.tap(find.text('أول دخول؟ تفعيل الحساب برمز تحقق'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ActivationScreen), findsOneWidget);
+
+    await tester.tap(find.text('إرسال رمز التحقق'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('123456'), findsOneWidget);
+
+    final fields = find.byType(TextFormField);
+    await tester.enterText(fields.at(2), '١٢٣٤٥٦');
+    await tester.enterText(fields.at(3), 'new-pass-123');
+    await tester.enterText(fields.at(4), 'new-pass-123');
+    await tester.tap(find.text('تفعيل الحساب والدخول'));
+    await tester.pumpAndSettle();
+
+    expect(activationBodies.single, {
+      'tenantCode': 'KKU',
+      'phone': '0500000101',
+      'code': '123456',
+      'password': 'new-pass-123',
+    });
+    expect(find.byType(ActivationScreen), findsNothing);
+    expect(find.byType(StudentShell), findsOneWidget);
   });
 }

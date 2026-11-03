@@ -73,6 +73,13 @@ enum TripStatus {
   CANCELLED
 }
 
+/// Who made a daily trip: the morning schedule, the driver, or an admin.
+enum TripOrigin {
+  AUTOMATIC
+  DRIVER
+  ADMIN
+}
+
 enum DevicePlatform {
   IOS
   ANDROID
@@ -81,12 +88,16 @@ enum DevicePlatform {
 }
 
 model Tenant {
-  id        String   @id @default(cuid())
-  name      String
-  code      String   @unique
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String   @id @default(cuid())
+  name           String
+  code           String   @unique
+  isActive       Boolean  @default(true)
+  /// Create each school day's trips automatically. Admins can pause it.
+  autoTrips      Boolean  @default(true)
+  /// When, in minutes after midnight Riyadh time (330 = 05:30).
+  autoTripMinute Int      @default(330)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   users                    User[]
   studentProfiles          StudentProfile[]
@@ -110,6 +121,10 @@ model Tenant {
   notifications            Notification[]
   userDocuments            UserDocument[]
   auditLogs                AuditLog[]
+  importDrafts             ImportDraft[]
+  autoTripRuns             AutoTripRun[]
+  holidays                 Holiday[]
+  driverAbsences           DriverAbsence[]
 }
 
 model User {
@@ -137,6 +152,7 @@ model User {
   refreshSessions            RefreshSession[]
   performedAttendanceIntents AttendanceIntent[]      @relation("AttendanceIntentActor")
   attendanceAudits           AttendanceAudit[]       @relation("AttendanceAuditActor")
+  importDrafts               ImportDraft[]
 
   @@unique([tenantId, phone])
   @@unique([tenantId, email])
@@ -184,7 +200,10 @@ model DriverProfile {
   updatedAt         DateTime         @updatedAt
 
   driverAssignments        DriverAssignment[]
-  dailyTrips               DailyTrip[]
+  dailyTrips               DailyTrip[]         @relation("TripDriver")
+  coveredDailyTrips        DailyTrip[]         @relation("TripCoveredDriver")
+  absences                 DriverAbsence[]     @relation("AbsentDriver")
+  absenceCovers            DriverAbsence[]     @relation("AbsenceCover")
   closedAttendanceSessions AttendanceSession[] @relation("AttendanceSessionClosedBy")
 
   @@unique([tenantId, employeeId])
@@ -289,6 +308,8 @@ model Route {
   dailyTrips         DailyTrip[]
   attendanceSessions AttendanceSession[]
   studentAssignments StudentAssignment[]
+  /// The bus that runs this route every school day (at most one).
+  bus                Bus?
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -316,6 +337,10 @@ model Bus {
   plateNumber String
   name        String?
   capacity    Int?
+  /// The route this bus runs every school day; its trips are created from it.
+  /// A route's attendance belongs to one trip a day, so one bus per route.
+  routeId     String?  @unique
+  route       Route?   @relation(fields: [routeId], references: [id])
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -323,6 +348,7 @@ model Bus {
   driverAssignments        DriverAssignment[]
   supervisorBusAssignments SupervisorBusAssignment[]
   dailyTrips               DailyTrip[]
+  driverAbsences           DriverAbsence[]
 
   @@unique([tenantId, plateNumber])
   @@index([tenantId])
@@ -453,26 +479,30 @@ model AttendanceAudit {
 }
 
 model DailyTrip {
-  id                  String             @id @default(cuid())
-  tenantId            String
-  tenant              Tenant             @relation(fields: [tenantId], references: [id])
-  routeId             String?
-  route               Route?             @relation(fields: [routeId], references: [id])
-  busId               String?
-  bus                 Bus?               @relation(fields: [busId], references: [id])
-  driverProfileId     String?
-  driverProfile       DriverProfile?     @relation(fields: [driverProfileId], references: [id])
-  supervisorProfileId String?
-  supervisorProfile   SupervisorProfile? @relation(fields: [supervisorProfileId], references: [id])
-  tripDate            DateTime           @db.Date
-  direction           TripDirection      @default(OUTBOUND)
-  status              TripStatus         @default(SCHEDULED)
-  scheduledStartTime  DateTime?
-  scheduledEndTime    DateTime?
-  startedAt           DateTime?
-  completedAt         DateTime?
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
+  id                     String             @id @default(cuid())
+  tenantId               String
+  tenant                 Tenant             @relation(fields: [tenantId], references: [id])
+  routeId                String?
+  route                  Route?             @relation(fields: [routeId], references: [id])
+  busId                  String?
+  bus                    Bus?               @relation(fields: [busId], references: [id])
+  driverProfileId        String?
+  driverProfile          DriverProfile?     @relation("TripDriver", fields: [driverProfileId], references: [id])
+  /// The bus's own driver when a supervisor has another driver cover the trip.
+  coveredDriverProfileId String?
+  coveredDriverProfile   DriverProfile?     @relation("TripCoveredDriver", fields: [coveredDriverProfileId], references: [id])
+  origin                 TripOrigin         @default(ADMIN)
+  supervisorProfileId    String?
+  supervisorProfile      SupervisorProfile? @relation(fields: [supervisorProfileId], references: [id])
+  tripDate               DateTime           @db.Date
+  direction              TripDirection      @default(OUTBOUND)
+  status                 TripStatus         @default(SCHEDULED)
+  scheduledStartTime     DateTime?
+  scheduledEndTime       DateTime?
+  startedAt              DateTime?
+  completedAt            DateTime?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
 
   tripStudents      TripStudent[]
   attendanceSession AttendanceSession?
@@ -581,4 +611,72 @@ model RefreshSession {
   createdAt DateTime  @default(now())
 
   @@index([userId])
+}
+
+/// People a university admin is preparing to add, kept to finish later.
+/// `rows` holds the typed values only: accounts are created without a
+/// password and the owner sets one on first login.
+model ImportDraft {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  role        Role
+  name        String
+  rows        Json
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId, role, updatedAt])
+}
+
+/// Marks that a tenant's school-day trips were created for a date, so the
+/// morning schedule runs once per day even with several servers.
+model AutoTripRun {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  tripDate  DateTime @db.Date
+  trips     Int      @default(0)
+  reminders Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, tripDate])
+}
+
+/// Days without school: no trips are created automatically.
+model Holiday {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  name      String
+  startDate DateTime @db.Date
+  /// The last day off (inclusive).
+  endDate   DateTime @db.Date
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, startDate])
+}
+
+/// A driver cannot drive on a day; the bus's supervisor picks a cover, whose
+/// name the day's trips are created with.
+model DriverAbsence {
+  id                   String         @id @default(cuid())
+  tenantId             String
+  tenant               Tenant         @relation(fields: [tenantId], references: [id])
+  driverProfileId      String
+  driverProfile        DriverProfile  @relation("AbsentDriver", fields: [driverProfileId], references: [id])
+  busId                String
+  bus                  Bus            @relation(fields: [busId], references: [id])
+  date                 DateTime       @db.Date
+  note                 String?
+  coverDriverProfileId String?
+  coverDriverProfile   DriverProfile? @relation("AbsenceCover", fields: [coverDriverProfileId], references: [id])
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  @@unique([driverProfileId, date])
+  @@index([tenantId, busId, date])
 }

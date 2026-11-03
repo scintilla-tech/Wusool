@@ -28,8 +28,13 @@ export function createStructureRouter(deps: ScopeDeps): Router {
   const service = new StructureService(deps.prisma);
 
   const listParams = (req: import('express').Request) => {
-    const q = req.query as unknown as { page: number; limit: number; active?: string };
-    return { page: q.page, limit: q.limit, activeOnly: q.active === 'true' };
+    const q = req.query as unknown as {
+      page: number;
+      limit: number;
+      active?: string;
+      q?: string;
+    };
+    return { page: q.page, limit: q.limit, activeOnly: q.active === 'true', q: q.q || undefined };
   };
 
   // Branches
@@ -112,6 +117,12 @@ export function createStructureRouter(deps: ScopeDeps): Router {
     validate({ query: listQuerySchema }),
     asyncHandler(async (req, res) => {
       res.json({ success: true, data: await service.listBuses(tenantOf(req), listParams(req)) });
+    }),
+  );
+  router.get(
+    '/buses/:id',
+    asyncHandler(async (req, res) => {
+      res.json({ success: true, data: await service.getBus(tenantOf(req), req.params.id) });
     }),
   );
   router.post(

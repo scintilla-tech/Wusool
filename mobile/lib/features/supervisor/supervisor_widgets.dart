@@ -29,6 +29,9 @@ class SupervisorBusItem extends StatelessWidget {
         ?bus.routeName,
         if (bus.tripDirection != null) directionLabel(bus.tripDirection!),
       ].join(' · '),
+      titleBadge: bus.uncovered > 0
+          ? const NdsTag('غياب سائق', status: TagStatus.warning)
+          : null,
       trailing: NdsTag(
         tripStatusLabel(bus.tripStatus),
         status: tripStatusTag(bus.tripStatus),

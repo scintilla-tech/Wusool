@@ -22,3 +22,11 @@ export const assignSupervisorSchema = z
     busId: idSchema,
   })
   .strict();
+
+/** Puts students on a route, moving any already on another one. */
+export const assignStudentsToRouteSchema = z
+  .object({
+    routeId: idSchema,
+    studentProfileIds: z.array(idSchema).min(1).max(500),
+  })
+  .strict();

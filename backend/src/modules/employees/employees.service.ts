@@ -1,6 +1,5 @@
 import type { Prisma, PrismaClient, Role } from '@prisma/client';
 import { AppError } from '../../utils/appError';
-import { hashPassword } from '../../utils/password';
 import { toPrismaPagination, type Paginated } from '../../utils/pagination';
 import type { EmployeeCreateInput, EmployeeUpdateInput } from './employees.schemas';
 
@@ -12,6 +11,8 @@ const employeeSelect = {
   email: true,
   phone: true,
   isActive: true,
+  // Read only to report whether the account is activated; never returned.
+  passwordHash: true,
   driverProfile: {
     select: {
       employeeId: true,
@@ -54,6 +55,8 @@ export interface EmployeeDto {
   email: string | null;
   phone: string;
   isActive: boolean;
+  /** False until the employee signs in for the first time and sets a password. */
+  isActivated: boolean;
   employeeId: string | null;
   nationality: string | null;
   joinDate: Date | null;
@@ -75,6 +78,7 @@ export function toEmployeeDto(user: EmployeeUser): EmployeeDto {
     email: user.email,
     phone: user.phone,
     isActive: user.isActive,
+    isActivated: user.passwordHash !== null,
     employeeId: profile?.employeeId ?? null,
     nationality: profile?.nationality ?? null,
     joinDate: profile?.joinDate ?? null,
@@ -114,9 +118,8 @@ export class EmployeesService {
     return toEmployeeDto(user);
   }
 
+  /** The account starts without a password; the employee sets one on first sign-in. */
   async create(tenantId: string, input: EmployeeCreateInput): Promise<EmployeeDto> {
-    const passwordHash = await hashPassword(input.password);
-
     const user = await this.prisma.$transaction(async (tx) => {
       const created = await tx.user.create({
         data: {
@@ -126,7 +129,6 @@ export class EmployeesService {
           lastName: input.lastName,
           email: input.email ?? null,
           phone: input.phone,
-          passwordHash,
         },
       });
 

@@ -3,16 +3,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/ui.dart';
+import '../home/notifications.dart';
 import 'admin_providers.dart';
 
 class AdminDashboardScreen extends ConsumerWidget {
   final VoidCallback onOpenStudents;
+  final VoidCallback onOpenStaff;
   final VoidCallback onOpenBuses;
+  final VoidCallback onOpenRoutes;
 
   const AdminDashboardScreen({
     super.key,
     required this.onOpenStudents,
+    required this.onOpenStaff,
     required this.onOpenBuses,
+    required this.onOpenRoutes,
   });
 
   @override
@@ -23,6 +28,7 @@ class AdminDashboardScreen extends ConsumerWidget {
       appBar: const BrandBar(
         title: 'إدارة الحركة والنقل',
         subtitle: 'جامعة الملك خالد',
+        actions: [NotificationBell()],
       ),
       body: async.when(
         loading: () => const LoadingView(),
@@ -80,9 +86,19 @@ class AdminDashboardScreen extends ConsumerWidget {
                       onTap: onOpenStudents,
                     ),
                     NdsTile(
+                      icon: HugeIcons.strokeRoundedUserGroup,
+                      label: 'الموظفون',
+                      onTap: onOpenStaff,
+                    ),
+                    NdsTile(
                       icon: HugeIcons.strokeRoundedBus01,
                       label: 'الحافلات',
                       onTap: onOpenBuses,
+                    ),
+                    NdsTile(
+                      icon: HugeIcons.strokeRoundedRoute01,
+                      label: 'المسارات',
+                      onTap: onOpenRoutes,
                     ),
                   ],
                 ),

@@ -24,5 +24,22 @@ export const logoutSchema = z
   })
   .strict();
 
+export const activationRequestSchema = z
+  .object({
+    tenantCode: z.string().trim().min(1).max(64),
+    phone: saudiPhoneSchema,
+  })
+  .strict();
+
+export const activationCompleteSchema = activationRequestSchema
+  .extend({
+    code: z
+      .string()
+      .trim()
+      .regex(/^\d{6}$/, 'Code must be 6 digits'),
+    password: z.string().min(8, 'Password must be at least 8 characters').max(200),
+  })
+  .strict();
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RefreshInput = z.infer<typeof refreshSchema>;

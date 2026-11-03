@@ -211,6 +211,8 @@ describe('supervisor bus card', () => {
     completedAt,
     busId: 'bus1',
     route: { name: 'North Loop' },
+    driverProfile: null,
+    coveredDriverProfile: null,
     tripStudents: [{ status: id === 'return' ? 'BOARDED' : 'WAITING' }],
     attendanceSession: null,
   });
@@ -225,6 +227,8 @@ describe('supervisor bus card', () => {
             .mockResolvedValue([{ bus: { id: 'bus1', plateNumber: 'KKU-1003', name: null } }]),
         },
         dailyTrip: { findMany: vi.fn().mockResolvedValue(trips) },
+        driverAssignment: { findMany: vi.fn().mockResolvedValue([]) },
+        driverAbsence: { findMany: vi.fn().mockResolvedValue([]) },
       }),
     );
     const [card] = await service.getMyBuses('tenant1', 'u1', 'SUPERVISOR');

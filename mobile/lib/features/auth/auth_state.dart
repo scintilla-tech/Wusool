@@ -104,20 +104,55 @@ class AuthNotifier extends Notifier<AuthState> {
     required String tenantCode,
     required String phone,
     required String password,
+  }) {
+    final payload = <String, dynamic>{'phone': phone, 'password': password};
+    // tenantCode is omitted for platform-level accounts (PLATFORM_SUPER_ADMIN).
+    if (tenantCode.trim().isNotEmpty) {
+      payload['tenantCode'] = tenantCode.trim();
+    }
+    return _signIn('/auth/login', payload, fallback: 'تعذر تسجيل الدخول');
+  }
+
+  /// Sends a one-time code to the phone of an account that has no password
+  /// yet. The server answers the same for any phone, so this cannot tell
+  /// whether an account exists. Returns the code only in development.
+  Future<String?> requestActivationCode({
+    required String tenantCode,
+    required String phone,
+  }) async {
+    final api = ref.read(apiClientProvider);
+    final res = await api.dio.post<Map<String, dynamic>>(
+      '/auth/activation/request',
+      data: {'tenantCode': tenantCode.trim(), 'phone': phone.trim()},
+    );
+    return res.data?['data']?['devOtp'] as String?;
+  }
+
+  /// First sign-in: proves the phone with [code], sets [password], signs in.
+  Future<bool> activate({
+    required String tenantCode,
+    required String phone,
+    required String code,
+    required String password,
+  }) {
+    return _signIn('/auth/activation/complete', {
+      'tenantCode': tenantCode.trim(),
+      'phone': phone.trim(),
+      'code': code.trim(),
+      'password': password,
+    }, fallback: 'تعذر تفعيل الحساب');
+  }
+
+  Future<bool> _signIn(
+    String path,
+    Map<String, dynamic> payload, {
+    required String fallback,
   }) async {
     await _retryPendingLogout(ref.read(tokenStoreProvider));
     state = state.copyWith(busy: true, errorMessage: null);
     try {
       final api = ref.read(apiClientProvider);
-      final payload = <String, dynamic>{'phone': phone, 'password': password};
-      // tenantCode is omitted for platform-level accounts (PLATFORM_SUPER_ADMIN).
-      if (tenantCode.trim().isNotEmpty) {
-        payload['tenantCode'] = tenantCode.trim();
-      }
-      final res = await api.dio.post<Map<String, dynamic>>(
-        '/auth/login',
-        data: payload,
-      );
+      final res = await api.dio.post<Map<String, dynamic>>(path, data: payload);
       final data = res.data?['data'] as Map<String, dynamic>?;
       final access = data?['accessToken'] as String?;
       final refresh = data?['refreshToken'] as String?;
@@ -140,21 +175,24 @@ class AuthNotifier extends Notifier<AuthState> {
       );
       return true;
     } on DioException catch (e) {
-      String? message;
       final data = e.response?.data;
-      if (data is Map) {
-        final error = data['error'];
-        if (error is Map) {
-          message = error['message'] as String?;
-        }
-      }
+      final error = data is Map ? data['error'] : null;
+      final code = error is Map ? error['code'] as String? : null;
       state = state.copyWith(
         busy: false,
-        errorMessage: message ?? 'تعذر تسجيل الدخول',
+        errorMessage: switch (code) {
+          'INVALID_CREDENTIALS' =>
+            'رقم الجوال أو كلمة المرور غير صحيحة. في أول دخول يلزم '
+                'تفعيل الحساب أولاً.',
+          'INVALID_CODE' => 'الرمز غير صحيح أو انتهت صلاحيته',
+          'RATE_LIMITED' => 'محاولات كثيرة، حاول بعد قليل',
+          _ when e.response == null => 'تعذّر الاتصال بالخادم',
+          _ => fallback,
+        },
       );
       return false;
     } catch (_) {
-      state = state.copyWith(busy: false, errorMessage: 'تعذر تسجيل الدخول');
+      state = state.copyWith(busy: false, errorMessage: fallback);
       return false;
     }
   }

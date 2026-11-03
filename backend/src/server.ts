@@ -8,6 +8,8 @@ import { createSocketServer } from './sockets';
 import { LocationService } from './modules/tracking/location.service';
 import { TripService } from './modules/trips/trips.service';
 import { TripEventBus } from './modules/trips/trip-events';
+import { TripScheduleService } from './modules/trips/trip-schedule.service';
+import { createNotificationService } from './modules/notifications/notification.service';
 
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 
@@ -40,8 +42,17 @@ async function main(): Promise<void> {
     logger.info({ port: config.PORT, env: config.NODE_ENV }, 'WASL API started');
   });
 
+  // Each school day at 5:30 am Riyadh time: trips for buses with a fixed route.
+  const stopSchedule = new TripScheduleService(
+    prisma,
+    tripService,
+    createNotificationService(prisma),
+    logger,
+  ).start();
+
   const shutdown = (signal: string): void => {
     logger.info({ signal }, 'Shutting down');
+    stopSchedule();
 
     const forceExit = setTimeout(() => {
       logger.error('Forced shutdown after timeout');

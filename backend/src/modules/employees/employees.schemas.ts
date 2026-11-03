@@ -8,7 +8,6 @@ export const employeeCreateSchema = z
     lastName: nameSchema,
     phone: saudiPhoneSchema,
     email: emailSchema.optional(),
-    password: z.string().min(8, 'Password must be at least 8 characters').max(200),
     employeeId: z.string().trim().min(1).max(64),
     nationalIdOrIqama: z.string().trim().min(10).max(20).optional(),
     nationality: z.string().trim().min(1).max(64).optional(),
@@ -18,10 +17,7 @@ export const employeeCreateSchema = z
   })
   .strict();
 
-export const employeeUpdateSchema = employeeCreateSchema
-  .omit({ role: true, password: true })
-  .partial()
-  .strict();
+export const employeeUpdateSchema = employeeCreateSchema.omit({ role: true }).partial().strict();
 
 export const employeeListQuerySchema = z
   .object({

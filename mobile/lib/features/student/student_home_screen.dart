@@ -123,8 +123,22 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
       ),
       body: attendanceAsync.when(
         loading: () => const LoadingView(),
-        error: (_, _) =>
-            ErrorView(onRetry: () => ref.invalidate(attendanceTodayProvider)),
+        error: (error, _) => apiErrorCode(error) == 'NO_ACTIVE_ROUTE'
+            ? PageBody(
+                onRefresh: _refresh,
+                children: [
+                  GreetingHeader(
+                    name: fullName,
+                    greeting: 'مرحباً، ${user?.firstName ?? ''}',
+                  ),
+                  const MessageView(
+                    icon: HugeIcons.strokeRoundedRoute01,
+                    title: 'لم يُحدَّد مسارك بعد',
+                    message: 'تظهر رحلاتك هنا بعد أن تُسند إدارة النقل إليكِ مساراً وحافلة.',
+                  ),
+                ],
+              )
+            : ErrorView(onRetry: () => ref.invalidate(attendanceTodayProvider)),
         data: (attendance) {
           final absent = attendance.sessions
               .where((session) => session.intent == 'ABSENT')

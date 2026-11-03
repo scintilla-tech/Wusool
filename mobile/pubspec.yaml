@@ -47,6 +47,8 @@ dependencies:
   flutter_secure_storage: ^11.2.0
   flutter_svg: ^2.3.0
   hugeicons: ^1.2.0
+  file_picker: 13.1.0
+  url_launcher: ^6.3.3
 
 dev_dependencies:
   flutter_test:

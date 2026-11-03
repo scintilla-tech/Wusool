@@ -5,6 +5,9 @@ import 'package:hugeicons/hugeicons.dart';
 import '../../core/labels.dart';
 import '../../core/theme.dart';
 import '../../core/ui.dart';
+import '../auth/auth_state.dart';
+import '../driver/driver_providers.dart' show dayLabel;
+import 'cover_driver_screen.dart';
 import 'supervisor_providers.dart';
 
 class BusDetailScreen extends ConsumerWidget {
@@ -53,6 +56,8 @@ class BusDetailScreen extends ConsumerWidget {
               status: tripStatusTag(bus.tripStatus),
             ),
           ),
+          _TodayDriver(bus: bus),
+          if (bus.absences.isNotEmpty) _DaysOff(bus: bus),
           if (!bus.hasTrip)
             const MessageView(
               icon: HugeIcons.strokeRoundedCalendar03,
@@ -132,6 +137,117 @@ class BusDetailScreen extends ConsumerWidget {
                 ],
               ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Who drives the bus today, and, for its own supervisor, choosing a cover.
+class _TodayDriver extends ConsumerWidget {
+  final SupervisorBusView bus;
+
+  const _TodayDriver({required this.bus});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ownSupervisor = ref.watch(authProvider).user?.role == 'SUPERVISOR';
+    final driver = bus.driverName ?? bus.regularDriverName;
+    final covering = bus.drivers.any((trip) => trip.coveredDriverName != null);
+    // Each trip gets its own row when the going and return drivers differ.
+    final split = bus.drivers.map((trip) => trip.driverName).toSet().length > 1;
+    return TitledPanel(
+      title: 'سائق اليوم',
+      trailing: covering
+          ? const NdsTag('سائق بديل', status: TagStatus.info)
+          : null,
+      child: NdsGroup(
+        children: [
+          if (split)
+            for (final trip in bus.drivers)
+              NdsListItem(
+                leading: InitialsAvatar(trip.driverName ?? '؟'),
+                title: trip.driverName ?? 'بلا سائق',
+                titleBadge: NdsTag(
+                  tripStatusLabel(trip.status),
+                  status: tripStatusTag(trip.status),
+                ),
+                meta: trip.coveredDriverName == null
+                    ? directionLabel(trip.direction)
+                    : '${directionLabel(trip.direction)} · بديلاً عن ${trip.coveredDriverName}',
+              )
+          else if (driver == null)
+            const InlineNote(
+              'لا سائق لهذه الحافلة.',
+              icon: HugeIcons.strokeRoundedAlert02,
+              color: NdsColors.yellow600,
+            )
+          else
+            NdsListItem(
+              leading: InitialsAvatar(driver),
+              title: driver,
+              meta: covering
+                  ? 'بديلاً عن ${bus.coveredDriverName}'
+                  : 'سائق الحافلة',
+            ),
+          if (ownSupervisor && bus.coverable > 0)
+            OutlinedButton.icon(
+              style: NdsButtons.compact,
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => CoverDriverScreen(bus: bus),
+                ),
+              ),
+              icon: const AppIcon(HugeIcons.strokeRoundedUserSwitch, size: 18),
+              label: Text(covering ? 'تغيير السائق' : 'تعيين سائق بديل'),
+            )
+          else if (ownSupervisor && bus.hasTrip)
+            const InlineNote('بدأت رحلات اليوم، فلا يمكن تغيير سائقها.'),
+        ],
+      ),
+    );
+  }
+}
+
+/// Days the bus's driver reported they cannot drive, with the cover chosen.
+class _DaysOff extends ConsumerWidget {
+  final SupervisorBusView bus;
+
+  const _DaysOff({required this.bus});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ownSupervisor = ref.watch(authProvider).user?.role == 'SUPERVISOR';
+    return TitledPanel(
+      title: 'غياب السائق',
+      child: NdsGroup(
+        children: [
+          for (final absence in bus.absences)
+            NdsListItem(
+              leading: const FeaturedIcon(
+                HugeIcons.strokeRoundedCalendar03,
+                tone: Tone.warning,
+              ),
+              title: '${absence.driverName} · ${dayLabel(absence.date)}',
+              titleBadge: absence.coverName == null
+                  ? const NdsTag('بلا بديل', status: TagStatus.warning)
+                  : null,
+              meta: absence.coverName == null
+                  ? absence.note
+                  : 'البديل: ${absence.coverName}',
+              meta2: absence.coverName == null ? null : absence.note,
+              chevron: ownSupervisor,
+              onTap: ownSupervisor
+                  ? () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) =>
+                            CoverDriverScreen(bus: bus, date: absence.date),
+                      ),
+                    )
+                  : null,
+            ),
+          if (ownSupervisor)
+            const InlineNote('اختاري اليوم لتعيين السائق البديل.'),
         ],
       ),
     );

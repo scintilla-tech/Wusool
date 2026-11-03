@@ -41,7 +41,7 @@ export const nameSchema = z
   .trim()
   .min(1, 'Name is required')
   .max(100, 'Name too long')
-  .regex(/^[\p{L}\s.'’-]+$/u, 'Name contains invalid characters');
+  .regex(/^[\p{L}\p{M}\s.'’-]+$/u, 'Name contains invalid characters');
 
 const numberOrNumericString = z.union([
   z.number(),
@@ -69,6 +69,14 @@ export const isoDateSchema = z
   .min(1, 'Date is required')
   .refine((value) => !Number.isNaN(Date.parse(value)), 'Invalid date')
   .transform((value) => new Date(value));
+
+/** A calendar day as YYYY-MM-DD, read as that business date. */
+export const calendarDaySchema = z
+  .string()
+  .trim()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD')
+  .refine((value) => !Number.isNaN(Date.parse(`${value}T00:00:00Z`)), 'Invalid date')
+  .transform((value) => new Date(`${value}T00:00:00Z`));
 
 export const DEFAULT_PAGE_SIZE = 20;
 export const MAX_PAGE_SIZE = 100;

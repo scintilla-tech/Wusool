@@ -33,6 +33,8 @@ const routeSources = [
   ['src/modules/devices/devices.routes.ts', '/api/v1/devices'],
   ['src/modules/notifications/notifications.routes.ts', '/api/v1/notifications'],
   ['src/modules/documents/documents.routes.ts', '/api/v1/documents'],
+  ['src/modules/imports/imports.routes.ts', '/api/v1/imports'],
+  ['src/modules/people/people.routes.ts', '/api/v1/people'],
 ] as const;
 
 function discoverRoutesFromSource(): string[] {
@@ -52,6 +54,8 @@ export const endpointInventory: EndpointCase[] = [
   { method: 'get', path: '/health/live', expectedWithoutAuth: 200 },
   { method: 'get', path: '/health/ready', expectedWithoutAuth: 200 },
   { method: 'post', path: '/api/v1/auth/login', expectedWithoutAuth: 400 },
+  { method: 'post', path: '/api/v1/auth/activation/request', expectedWithoutAuth: 400 },
+  { method: 'post', path: '/api/v1/auth/activation/complete', expectedWithoutAuth: 400 },
   { method: 'post', path: '/api/v1/auth/refresh', expectedWithoutAuth: 400 },
   { method: 'post', path: '/api/v1/auth/logout', expectedWithoutAuth: 400 },
   { method: 'post', path: '/api/v1/auth/logout-all', expectedWithoutAuth: 401 },
@@ -75,6 +79,7 @@ export const endpointInventory: EndpointCase[] = [
   { method: 'patch', path: `/api/v1/structure/neighborhoods/${id}`, expectedWithoutAuth: 401 },
   { method: 'delete', path: `/api/v1/structure/neighborhoods/${id}`, expectedWithoutAuth: 401 },
   { method: 'get', path: '/api/v1/structure/buses', expectedWithoutAuth: 401 },
+  { method: 'get', path: `/api/v1/structure/buses/${id}`, expectedWithoutAuth: 401 },
   { method: 'post', path: '/api/v1/structure/buses', expectedWithoutAuth: 401 },
   { method: 'patch', path: `/api/v1/structure/buses/${id}`, expectedWithoutAuth: 401 },
   { method: 'delete', path: `/api/v1/structure/buses/${id}`, expectedWithoutAuth: 401 },
@@ -94,6 +99,7 @@ export const endpointInventory: EndpointCase[] = [
   { method: 'put', path: `/api/v1/attendance/today/${id}`, expectedWithoutAuth: 401 },
   { method: 'get', path: '/api/v1/assignments/students', expectedWithoutAuth: 401 },
   { method: 'post', path: '/api/v1/assignments/students', expectedWithoutAuth: 401 },
+  { method: 'post', path: '/api/v1/assignments/students/batch', expectedWithoutAuth: 401 },
   { method: 'delete', path: `/api/v1/assignments/students/${id}`, expectedWithoutAuth: 401 },
   { method: 'get', path: '/api/v1/assignments/drivers', expectedWithoutAuth: 401 },
   { method: 'post', path: '/api/v1/assignments/drivers', expectedWithoutAuth: 401 },
@@ -105,28 +111,61 @@ export const endpointInventory: EndpointCase[] = [
   { method: 'post', path: '/api/v1/trips', expectedWithoutAuth: 401 },
   { method: 'get', path: '/api/v1/driver/today', expectedWithoutAuth: 401 },
   { method: 'get', path: '/api/v1/driver/today/trips', expectedWithoutAuth: 401 },
+  { method: 'get', path: '/api/v1/driver/bus', expectedWithoutAuth: 401 },
+  { method: 'post', path: '/api/v1/driver/trips', expectedWithoutAuth: 401 },
+  { method: 'get', path: '/api/v1/driver/route-options', expectedWithoutAuth: 401 },
+  { method: 'post', path: '/api/v1/driver/neighborhoods', expectedWithoutAuth: 401 },
+  { method: 'post', path: '/api/v1/driver/route', expectedWithoutAuth: 401 },
+  { method: 'patch', path: '/api/v1/driver/route', expectedWithoutAuth: 401 },
+  { method: 'get', path: '/api/v1/driver/absences', expectedWithoutAuth: 401 },
+  { method: 'post', path: '/api/v1/driver/absences', expectedWithoutAuth: 401 },
+  { method: 'delete', path: `/api/v1/driver/absences/${id}`, expectedWithoutAuth: 401 },
   { method: 'put', path: `/api/v1/driver/${id}/attendance/${id}`, expectedWithoutAuth: 401 },
   { method: 'post', path: `/api/v1/driver/${id}/attendance/close`, expectedWithoutAuth: 401 },
   { method: 'post', path: `/api/v1/driver/${id}/start`, expectedWithoutAuth: 401 },
   { method: 'patch', path: `/api/v1/driver/${id}/students/${id}`, expectedWithoutAuth: 401 },
   { method: 'post', path: `/api/v1/driver/${id}/complete`, expectedWithoutAuth: 401 },
   { method: 'get', path: '/api/v1/supervisor/buses', expectedWithoutAuth: 401 },
+  { method: 'get', path: `/api/v1/supervisor/buses/${id}/drivers`, expectedWithoutAuth: 401 },
+  { method: 'post', path: `/api/v1/supervisor/buses/${id}/cover`, expectedWithoutAuth: 401 },
   { method: 'get', path: '/api/v1/admin/dashboard', expectedWithoutAuth: 401 },
+  { method: 'get', path: '/api/v1/admin/settings', expectedWithoutAuth: 401 },
+  { method: 'patch', path: '/api/v1/admin/settings', expectedWithoutAuth: 401 },
+  { method: 'get', path: '/api/v1/admin/holidays', expectedWithoutAuth: 401 },
+  { method: 'post', path: '/api/v1/admin/holidays', expectedWithoutAuth: 401 },
+  { method: 'patch', path: `/api/v1/admin/holidays/${id}`, expectedWithoutAuth: 401 },
+  { method: 'delete', path: `/api/v1/admin/holidays/${id}`, expectedWithoutAuth: 401 },
   { method: 'get', path: '/api/v1/platform/tenants', expectedWithoutAuth: 401 },
   { method: 'post', path: '/api/v1/platform/tenants', expectedWithoutAuth: 401 },
   { method: 'patch', path: `/api/v1/platform/tenants/${id}`, expectedWithoutAuth: 401 },
   { method: 'post', path: '/api/v1/devices', expectedWithoutAuth: 401 },
   { method: 'delete', path: '/api/v1/devices', expectedWithoutAuth: 401 },
   { method: 'get', path: '/api/v1/notifications', expectedWithoutAuth: 401 },
+  { method: 'get', path: '/api/v1/notifications/unread-count', expectedWithoutAuth: 401 },
+  { method: 'post', path: '/api/v1/notifications/read-all', expectedWithoutAuth: 401 },
   { method: 'patch', path: `/api/v1/notifications/${id}/read`, expectedWithoutAuth: 401 },
   { method: 'post', path: '/api/v1/documents', expectedWithoutAuth: 401 },
   { method: 'get', path: `/api/v1/documents/${id}/url`, expectedWithoutAuth: 401 },
   { method: 'get', path: `/api/v1/documents/${id}/file`, expectedWithoutAuth: 401 },
+  { method: 'get', path: `/api/v1/imports/templates/${id}`, expectedWithoutAuth: 404 },
+  { method: 'post', path: '/api/v1/imports/read-file', expectedWithoutAuth: 401 },
+  { method: 'post', path: '/api/v1/imports/check', expectedWithoutAuth: 401 },
+  { method: 'post', path: '/api/v1/imports/submit', expectedWithoutAuth: 401 },
+  { method: 'get', path: '/api/v1/imports/drafts', expectedWithoutAuth: 401 },
+  { method: 'post', path: '/api/v1/imports/drafts', expectedWithoutAuth: 401 },
+  { method: 'get', path: `/api/v1/imports/drafts/${id}`, expectedWithoutAuth: 401 },
+  { method: 'put', path: `/api/v1/imports/drafts/${id}`, expectedWithoutAuth: 401 },
+  { method: 'delete', path: `/api/v1/imports/drafts/${id}`, expectedWithoutAuth: 401 },
+  { method: 'get', path: '/api/v1/people', expectedWithoutAuth: 401 },
+  { method: 'get', path: `/api/v1/people/${id}`, expectedWithoutAuth: 401 },
+  { method: 'put', path: `/api/v1/people/${id}`, expectedWithoutAuth: 401 },
+  { method: 'post', path: `/api/v1/people/${id}/disable`, expectedWithoutAuth: 401 },
+  { method: 'post', path: `/api/v1/people/${id}/enable`, expectedWithoutAuth: 401 },
 ];
 
 describe('complete HTTP endpoint inventory', () => {
   it('contains the exact discovered endpoint count', () => {
-    expect(endpointInventory).toHaveLength(73);
+    expect(endpointInventory).toHaveLength(110);
   });
 
   it('matches every route declaration discovered from the source files', () => {
@@ -183,6 +222,8 @@ describe('complete HTTP endpoint inventory', () => {
         '/api/v1/supervisor/',
         '/api/v1/admin/',
         '/api/v1/platform/',
+        '/api/v1/imports/',
+        '/api/v1/people',
       ].some((prefix) => path.startsWith(prefix))
     );
   });

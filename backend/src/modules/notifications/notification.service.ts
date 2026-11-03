@@ -1,7 +1,11 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { AppError } from '../../utils/appError';
 import { toPrismaPagination, type Paginated } from '../../utils/pagination';
-import type { PushPayload, PushProvider } from '../../providers/notifications';
+import {
+  MockPushProvider,
+  type PushPayload,
+  type PushProvider,
+} from '../../providers/notifications';
 
 export class NotificationService {
   constructor(
@@ -28,6 +32,10 @@ export class NotificationService {
     await Promise.all(devices.map((d) => this.provider.send(d.platform, d.token, payload)));
   }
 
+  async sendToAll(userIds: string[], payload: PushPayload): Promise<void> {
+    for (const userId of new Set(userIds)) await this.send(userId, payload);
+  }
+
   async listMine(userId: string, page: number, limit: number): Promise<Paginated<unknown>> {
     const [items, total] = await Promise.all([
       this.prisma.notification.findMany({
@@ -40,6 +48,18 @@ export class NotificationService {
     return { items, page, limit, total };
   }
 
+  async unreadCount(userId: string): Promise<number> {
+    return this.prisma.notification.count({ where: { userId, isRead: false } });
+  }
+
+  async markAllRead(userId: string): Promise<number> {
+    const { count } = await this.prisma.notification.updateMany({
+      where: { userId, isRead: false },
+      data: { isRead: true, readAt: new Date() },
+    });
+    return count;
+  }
+
   async markRead(userId: string, id: string) {
     const notification = await this.prisma.notification.findFirst({ where: { id, userId } });
     if (!notification) throw new AppError(404, 'NOT_FOUND', 'Notification not found');
@@ -48,4 +68,13 @@ export class NotificationService {
       data: { isRead: true, readAt: new Date() },
     });
   }
+}
+
+/**
+ * The notification service with the push provider configured for this
+ * server. Push is a placeholder until real FCM / Huawei / APNs credentials are
+ * set up; notifications are always kept for the in-app list.
+ */
+export function createNotificationService(prisma: PrismaClient): NotificationService {
+  return new NotificationService(prisma, new MockPushProvider());
 }

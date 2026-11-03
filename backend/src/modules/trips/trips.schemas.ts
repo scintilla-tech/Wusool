@@ -18,3 +18,8 @@ export const tripStudentStatusSchema = z
   .strict();
 
 export type TripCreateInput = z.infer<typeof tripCreateSchema>;
+
+/** A driver adds today's trip to their bus, on its fixed route. */
+export const driverTripCreateSchema = z
+  .object({ direction: z.enum(['OUTBOUND', 'RETURN']) })
+  .strict();

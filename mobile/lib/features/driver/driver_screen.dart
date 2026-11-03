@@ -8,6 +8,7 @@ import 'package:hugeicons/hugeicons.dart';
 import '../../core/api_client.dart';
 import '../../core/socket_service.dart';
 import '../../core/ui.dart';
+import '../home/notifications.dart';
 import 'driver_home_screen.dart';
 import 'driver_profile_screen.dart';
 import 'driver_providers.dart';
@@ -202,21 +203,29 @@ class _DriverScreenState extends ConsumerState<DriverScreen>
       });
     }
 
-    return Scaffold(
-      body: IndexedStack(
-        index: _index,
-        children: [
-          DriverHomeScreen(actions: this),
-          const DriverProfileScreen(),
-        ],
-      ),
-      bottomNavigationBar: NdsTabBar(
-        currentIndex: _index,
-        onTap: (index) => setState(() => _index = index),
-        items: const [
-          NdsTabItem(HugeIcons.strokeRoundedHome01, 'الرئيسية'),
-          NdsTabItem(HugeIcons.strokeRoundedUserCircle, 'ملفي'),
-        ],
+    return NotificationWatcher(
+      // A new trip or a cover changes today's trips.
+      onNew: () {
+        _refresh();
+        ref.invalidate(driverBusProvider);
+        ref.invalidate(driverAbsencesProvider);
+      },
+      child: Scaffold(
+        body: IndexedStack(
+          index: _index,
+          children: [
+            DriverHomeScreen(actions: this),
+            const DriverProfileScreen(),
+          ],
+        ),
+        bottomNavigationBar: NdsTabBar(
+          currentIndex: _index,
+          onTap: (index) => setState(() => _index = index),
+          items: const [
+            NdsTabItem(HugeIcons.strokeRoundedHome01, 'الرئيسية'),
+            NdsTabItem(HugeIcons.strokeRoundedUserCircle, 'ملفي'),
+          ],
+        ),
       ),
     );
   }
