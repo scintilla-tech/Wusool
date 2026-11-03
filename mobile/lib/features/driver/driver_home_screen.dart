@@ -7,7 +7,10 @@ import '../../core/labels.dart';
 import '../../core/theme.dart';
 import '../../core/ui.dart';
 import '../auth/auth_state.dart';
+import '../home/notifications.dart';
+import 'create_trip_screen.dart';
 import 'driver_providers.dart';
+import 'driver_route_screen.dart';
 import 'driver_screen.dart';
 import 'driver_trip_screens.dart';
 
@@ -16,15 +19,43 @@ class DriverHomeScreen extends ConsumerWidget {
 
   const DriverHomeScreen({super.key, required this.actions});
 
+  Future<void> _createTrip(BuildContext context, WidgetRef ref) async {
+    final created = await Navigator.of(
+      context,
+    ).push<bool>(MaterialPageRoute(builder: (_) => const CreateTripScreen()));
+    if (created == true) {
+      ref.invalidate(driverTripsProvider);
+      ref.invalidate(driverBusProvider);
+    }
+  }
+
+  Future<void> _editRoute(
+    BuildContext context,
+    WidgetRef ref,
+    DriverRoute? route,
+  ) async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => DriverRouteScreen(route: route)),
+    );
+    if (saved == true) ref.invalidate(driverBusProvider);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authProvider).user;
     final async = ref.watch(driverTripsProvider);
+    final bus = ref.watch(driverBusProvider).value;
+    final canCreate =
+        bus != null &&
+        bus.hasBus &&
+        bus.route != null &&
+        bus.missing.isNotEmpty;
 
     return Scaffold(
       appBar: const BrandBar(
         title: 'بوابة السائقين',
         subtitle: 'نظام النقل الجامعي للطالبات',
+        actions: [NotificationBell()],
       ),
       body: async.when(
         loading: () => const LoadingView(),
@@ -40,6 +71,8 @@ class DriverHomeScreen extends ConsumerWidget {
           return PageBody(
             onRefresh: () async {
               ref.invalidate(driverTripsProvider);
+              ref.invalidate(driverBusProvider);
+              ref.invalidate(unreadCountProvider);
               await ref.read(driverTripsProvider.future);
             },
             children: [
@@ -49,18 +82,42 @@ class DriverHomeScreen extends ConsumerWidget {
                 subtitle: formatArabicDate(DateTime.now()),
               ),
               if (current == null)
-                const HeroPanel(
+                HeroPanel(
                   children: [
-                    HeroHeading(
+                    const HeroHeading(
                       caption: 'رحلات اليوم',
                       title: 'لا توجد رحلات مجدولة',
                     ),
-                    HeroDivider(),
+                    const HeroDivider(),
                     HeroInfoRow(
                       icon: HugeIcons.strokeRoundedClock01,
                       label: 'رحلاتك',
-                      value: 'ستظهر هنا عند جدولتها من الإدارة',
+                      value: switch (bus) {
+                        null => 'ستظهر رحلاتك هنا',
+                        DriverBus(hasBus: false) => 'لست معيّناً على حافلة بعد',
+                        // The bus has trips today, but another driver has them.
+                        DriverBus(todayDirections: Set(isNotEmpty: true)) =>
+                          'يقود سائق بديل رحلات حافلتك اليوم',
+                        DriverBus(holiday: final String name) =>
+                          'اليوم إجازة: $name',
+                        DriverBus(route: null) =>
+                          'أنشئ مسار حافلتك مرة واحدة لتُجدول رحلاتها',
+                        DriverBus(autoTrips: false) =>
+                          'الرحلات التلقائية موقوفة؛ أنشئ رحلتك',
+                        final DriverBus bus =>
+                          'تُنشأ تلقائياً ${clockWords(bus.autoTripTime)} أيام الدراسة',
+                      },
                     ),
+                    if (canCreate)
+                      OutlinedButton.icon(
+                        style: NdsButtons.onColorOutline,
+                        onPressed: () => _createTrip(context, ref),
+                        icon: const AppIcon(
+                          HugeIcons.strokeRoundedAdd01,
+                          size: 20,
+                        ),
+                        label: const Text('إنشاء رحلة'),
+                      ),
                   ],
                 )
               else
@@ -110,6 +167,16 @@ class DriverHomeScreen extends ConsumerWidget {
               if (trips.isNotEmpty)
                 Section(
                   title: 'رحلات اليوم',
+                  trailing: canCreate
+                      ? TextButton.icon(
+                          onPressed: () => _createTrip(context, ref),
+                          icon: const AppIcon(
+                            HugeIcons.strokeRoundedAdd01,
+                            size: 18,
+                          ),
+                          label: const Text('إنشاء رحلة'),
+                        )
+                      : null,
                   children: [
                     for (final trip in trips)
                       NdsListItem(
@@ -124,6 +191,9 @@ class DriverHomeScreen extends ConsumerWidget {
                           ?trip.routeName,
                           if (trip.busPlate != null) ltr(trip.busPlate!),
                         ].join(' · '),
+                        meta2: trip.coveringFor == null
+                            ? null
+                            : 'بديلاً عن ${trip.coveringFor}',
                         trailing: NdsTag(
                           tripStatusLabel(trip.status),
                           status: tripStatusTag(trip.status),
@@ -132,6 +202,11 @@ class DriverHomeScreen extends ConsumerWidget {
                         onTap: () => openDriverTrip(context, trip, actions),
                       ),
                   ],
+                ),
+              if (bus != null && bus.hasBus)
+                _BusRoutePanel(
+                  bus: bus,
+                  onEdit: () => _editRoute(context, ref, bus.route),
                 ),
             ],
           );
@@ -154,19 +229,21 @@ class _DriverHero extends StatelessWidget {
       return HeroPanel(
         children: [
           HeroHeading(
-            caption: 'حافلتك اليوم · ${directionLabel(trip.direction)}',
+            caption: trip.coveringFor == null
+                ? 'حافلتك اليوم · ${directionLabel(trip.direction)}'
+                : 'بديلاً عن ${trip.coveringFor} · ${directionLabel(trip.direction)}',
             title: plate,
             tag: trip.routeName,
           ),
           const HeroDivider(),
           ValueRow(
             label: 'الطالبات المسجلات',
-            value: studentCount(trip.students.length),
+            value: studentsOn(trip.students.length),
             onColor: true,
           ),
           ValueRow(
             label: 'حاضرات اليوم',
-            value: studentCount(trip.attending),
+            value: studentsOn(trip.attending),
             onColor: true,
           ),
         ],
@@ -203,6 +280,61 @@ class _DriverHero extends StatelessWidget {
           child: Text(trip.isInProgress ? 'عرض الرحلة' : 'ملخص الرحلة'),
         ),
       ],
+    );
+  }
+}
+
+/// The bus's fixed route, or the call to build it once.
+class _BusRoutePanel extends StatelessWidget {
+  final DriverBus bus;
+  final VoidCallback onEdit;
+
+  const _BusRoutePanel({required this.bus, required this.onEdit});
+
+  @override
+  Widget build(BuildContext context) {
+    final route = bus.route;
+    if (route == null) {
+      return NdsAlert(
+        status: TagStatus.warning,
+        title: 'ليس لحافلتك مسار ثابت',
+        description:
+            'أنشئه مرة واحدة: تُنشأ بعدها رحلاتك تلقائياً كل يوم دراسي.',
+        action: ElevatedButton(
+          style: NdsButtons.small,
+          onPressed: onEdit,
+          child: const Text('إنشاء مسار الحافلة'),
+        ),
+      );
+    }
+    return TitledPanel(
+      title: 'مسار حافلتك',
+      trailing: TextButton.icon(
+        onPressed: onEdit,
+        icon: const AppIcon(HugeIcons.strokeRoundedPencilEdit02, size: 18),
+        label: const Text('تعديل'),
+      ),
+      child: NdsGroup(
+        gap: Space.xs,
+        children: [
+          Text(
+            route.name,
+            style: NdsText.textMd.copyWith(
+              fontWeight: FontWeight.w600,
+              color: Nds.textDisplay,
+            ),
+          ),
+          Text(
+            route.stops.isEmpty ? 'لا محطات' : route.stopsLine,
+            style: NdsText.textSm.copyWith(color: Nds.textSecondary),
+          ),
+          if (route.campusName != null)
+            Text(
+              'إلى ${route.campusName}',
+              style: NdsText.textSm.copyWith(color: Nds.textSecondary),
+            ),
+        ],
+      ),
     );
   }
 }
