@@ -8,6 +8,7 @@ import '../../core/theme.dart';
 import '../../core/ui.dart';
 import '../auth/auth_state.dart';
 import '../home/notifications.dart';
+import 'absence_screen.dart';
 import 'create_trip_screen.dart';
 import 'driver_providers.dart';
 import 'driver_route_screen.dart';
@@ -40,11 +41,16 @@ class DriverHomeScreen extends ConsumerWidget {
     if (saved == true) ref.invalidate(driverBusProvider);
   }
 
+  void _reportAbsence(BuildContext context) =>
+      Navigator.of(context)
+          .push(MaterialPageRoute<void>(builder: (_) => const AbsenceScreen()));
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authProvider).user;
     final async = ref.watch(driverTripsProvider);
     final bus = ref.watch(driverBusProvider).value;
+    final absences = ref.watch(driverAbsencesProvider).value ?? const [];
     final canCreate =
         bus != null &&
         bus.hasBus &&
@@ -72,6 +78,7 @@ class DriverHomeScreen extends ConsumerWidget {
             onRefresh: () async {
               ref.invalidate(driverTripsProvider);
               ref.invalidate(driverBusProvider);
+              ref.invalidate(driverAbsencesProvider);
               ref.invalidate(unreadCountProvider);
               await ref.read(driverTripsProvider.future);
             },
@@ -164,6 +171,14 @@ class DriverHomeScreen extends ConsumerWidget {
                   ),
                 ],
               ),
+              for (final absence in absences.take(2))
+                NdsAlert(
+                  status: TagStatus.warning,
+                  title: 'أبلغت عن غيابك ${dayLabel(absence.date)}',
+                  description: absence.coverName == null
+                      ? 'بانتظار أن تختار المشرفة سائقاً بديلاً.'
+                      : 'يقود ${absence.coverName} بدلاً منك.',
+                ),
               if (trips.isNotEmpty)
                 Section(
                   title: 'رحلات اليوم',
@@ -207,6 +222,15 @@ class DriverHomeScreen extends ConsumerWidget {
                 _BusRoutePanel(
                   bus: bus,
                   onEdit: () => _editRoute(context, ref, bus.route),
+                ),
+              if (bus != null && bus.hasBus)
+                OutlinedButton.icon(
+                  onPressed: () => _reportAbsence(context),
+                  icon: const AppIcon(
+                    HugeIcons.strokeRoundedCalendar03,
+                    size: 20,
+                  ),
+                  label: const Text('لن أتمكن من القيادة'),
                 ),
             ],
           );

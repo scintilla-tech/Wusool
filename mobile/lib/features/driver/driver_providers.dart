@@ -246,6 +246,41 @@ final driverBusProvider = FutureProvider.autoDispose<DriverBus>((ref) async {
   return DriverBus.fromJson(data is Map<String, dynamic> ? data : const {});
 });
 
+/// A day the driver told the supervisor they cannot drive.
+class DriverAbsence {
+  final String id;
+  final DateTime date;
+  final String? note;
+
+  /// Who drives instead, once the supervisor picks them.
+  final String? coverName;
+
+  const DriverAbsence({
+    required this.id,
+    required this.date,
+    this.note,
+    this.coverName,
+  });
+
+  factory DriverAbsence.fromJson(Map<String, dynamic> json) => DriverAbsence(
+    id: json['id'] as String? ?? '',
+    date: DateTime.parse(json['date'] as String),
+    note: json['note'] as String?,
+    coverName: json['coverName'] as String?,
+  );
+}
+
+final driverAbsencesProvider = FutureProvider.autoDispose<List<DriverAbsence>>((
+  ref,
+) async {
+  final api = ref.watch(apiClientProvider);
+  final res = await api.dio.get<Map<String, dynamic>>('/driver/absences');
+  return [
+    for (final item in res.data?['data']?['items'] as List? ?? const [])
+      if (item is Map) DriverAbsence.fromJson(item.cast<String, dynamic>()),
+  ];
+});
+
 /// "اليوم", "غداً" or "الثلاثاء 4 نوفمبر" for a calendar day.
 String dayLabel(DateTime day, {DateTime? now}) {
   const weekdays = [

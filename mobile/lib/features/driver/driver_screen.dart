@@ -208,6 +208,7 @@ class _DriverScreenState extends ConsumerState<DriverScreen>
       onNew: () {
         _refresh();
         ref.invalidate(driverBusProvider);
+        ref.invalidate(driverAbsencesProvider);
       },
       child: Scaffold(
         body: IndexedStack(
