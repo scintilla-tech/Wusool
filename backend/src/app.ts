@@ -23,6 +23,7 @@ import { createSupervisorRouter } from './modules/supervisor/supervisor.routes';
 import { createAdminRouter } from './modules/admin/admin.routes';
 import { createPlatformRouter } from './modules/platform/platform.routes';
 import { createDocumentsRouter } from './modules/documents/documents.routes';
+import { createImportTemplatesRouter, createImportsRouter } from './modules/imports/imports.routes';
 import { LocationService } from './modules/tracking/location.service';
 import { TripService } from './modules/trips/trips.service';
 import { LocalStorageProvider, type StorageProvider } from './providers/storage';
@@ -83,6 +84,8 @@ export function createApp({
     }),
   );
 
+  // A list of up to 1000 people to add exceeds the default body size.
+  app.use('/api/v1/imports', express.json({ limit: '1mb' }));
   app.use(express.json({ limit: '100kb' }));
   app.use(express.urlencoded({ extended: false, limit: '100kb' }));
 
@@ -109,6 +112,8 @@ export function createApp({
   app.use('/api/v1/devices', createDevicesRouter(scopeDeps));
   app.use('/api/v1/notifications', createNotificationsRouter(scopeDeps));
   app.use('/api/v1/documents', createDocumentsRouter({ ...scopeDeps, storage }));
+  app.use('/api/v1/imports', createImportTemplatesRouter());
+  app.use('/api/v1/imports', createImportsRouter(scopeDeps));
 
   app.use(notFoundHandler);
   app.use(errorHandler(logger, config.NODE_ENV === 'production'));
