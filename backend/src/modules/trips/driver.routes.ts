@@ -9,10 +9,11 @@ import { AttendanceService } from '../attendance/attendance.service';
 import { closeAttendanceSchema, driverAttendanceSchema } from '../attendance/attendance.schemas';
 import type { TripEventBus } from './trip-events';
 import { z } from 'zod';
-import { idSchema } from '../../validation/common';
+import { calendarDaySchema, idSchema } from '../../validation/common';
 import { createNotificationService } from '../notifications/notification.service';
 import { StructureService } from '../structure/structure.service';
 import { neighborhoodCreateSchema, routeStopIdsSchema } from '../structure/structure.schemas';
+import { AbsenceService } from '../absences/absence.service';
 import { DriverRouteService } from './driver-route.service';
 
 const placeName = neighborhoodCreateSchema.shape.name;
@@ -24,6 +25,9 @@ const driverRouteCreateSchema = z
   })
   .strict();
 const driverRouteUpdateSchema = driverRouteCreateSchema.partial().strict();
+const absenceSchema = z
+  .object({ date: calendarDaySchema, note: z.string().trim().max(200).optional() })
+  .strict();
 
 /** Driver-facing trip workflow. */
 export function createDriverRouter(
@@ -38,6 +42,7 @@ export function createDriverRouter(
     new StructureService(deps.prisma),
     notifications,
   );
+  const absences = new AbsenceService(deps.prisma, notifications);
   const tenantOf = (req: import('express').Request) => req.auth?.tenantId as string;
   const userOf = (req: import('express').Request) => req.auth?.userId as string;
 
@@ -110,6 +115,34 @@ export function createDriverRouter(
     validate({ body: driverRouteUpdateSchema }),
     asyncHandler(async (req, res) => {
       res.json({ success: true, data: await routes.update(tenantOf(req), userOf(req), req.body) });
+    }),
+  );
+
+  router.get(
+    '/absences',
+    asyncHandler(async (req, res) => {
+      res.json({
+        success: true,
+        data: { items: await absences.listForDriver(tenantOf(req), userOf(req)) },
+      });
+    }),
+  );
+
+  router.post(
+    '/absences',
+    validate({ body: absenceSchema }),
+    asyncHandler(async (req, res) => {
+      res
+        .status(201)
+        .json({ success: true, data: await absences.report(tenantOf(req), userOf(req), req.body) });
+    }),
+  );
+
+  router.delete(
+    '/absences/:id',
+    asyncHandler(async (req, res) => {
+      await absences.cancel(tenantOf(req), userOf(req), req.params.id);
+      res.json({ success: true, data: {} });
     }),
   );
 
