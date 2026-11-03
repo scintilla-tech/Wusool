@@ -60,3 +60,37 @@ String busCount(int n) => countOf(
 
 String seatCount(int n) =>
     countOf(n, one: 'مقعد واحد', two: 'مقعدان', few: 'مقاعد', many: 'مقعداً');
+
+String routeCount(int n) =>
+    countOf(n, one: 'مسار واحد', two: 'مساران', few: 'مسارات', many: 'مساراً');
+
+String campusCount(int n) =>
+    countOf(n, one: 'مقر واحد', two: 'مقران', few: 'مقرات', many: 'مقراً');
+
+String neighborhoodCount(int n) =>
+    countOf(n, one: 'حي واحد', two: 'حيّان', few: 'أحياء', many: 'حياً');
+
+String stopCount(int n) =>
+    countOf(n, one: 'محطة واحدة', two: 'محطتان', few: 'محطات', many: 'محطة');
+
+/// +966501234567 as people write it: 0501234567.
+String localPhone(String phone) =>
+    phone.startsWith('+966') ? '0${phone.substring(4)}' : phone;
+
+/// "طالبتان", or "بلا طالبات" for none.
+String studentsOn(int n) => n == 0 ? 'بلا طالبات' : studentCount(n);
+
+/// Arabic-Indic and Persian digits, as Arabic keyboards type them, become 0-9.
+String asciiDigits(String value) => value.replaceAllMapped(
+  RegExp('[٠-٩۰-۹]'),
+  (m) => '${m[0]!.codeUnitAt(0) % 16}',
+);
+
+/// "05:30" → "5:30 صباحاً", "13:15" → "1:15 مساءً".
+String clockWords(String hhmm) {
+  final parts = hhmm.split(':');
+  final hour = int.tryParse(parts.first) ?? 0;
+  final minute = parts.length > 1 ? parts[1] : '00';
+  final twelve = hour % 12 == 0 ? 12 : hour % 12;
+  return '$twelve:$minute ${hour < 12 ? 'صباحاً' : 'مساءً'}';
+}
