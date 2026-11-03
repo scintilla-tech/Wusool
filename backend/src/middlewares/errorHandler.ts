@@ -46,7 +46,8 @@ interface HttpErrorLike {
 
 /** Map body-parser errors (malformed JSON, oversized body, unsupported media type) to 4xx. */
 function toBodyParserStatus(err: unknown): number | undefined {
-  if (typeof err !== 'object' || err === null) {
+  // Application errors with these statuses carry their own code and message.
+  if (typeof err !== 'object' || err === null || err instanceof AppError) {
     return undefined;
   }
   const { type, status, statusCode } = err as HttpErrorLike;

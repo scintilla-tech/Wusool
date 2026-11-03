@@ -27,6 +27,17 @@ describe('centralized error handling', () => {
     expect(res.body.error.code).toBe('TEAPOT');
   });
 
+  it('keeps the code of an AppError whose status a body parser also uses', async () => {
+    const app = express();
+    app.get('/boom', () => {
+      throw new AppError(415, 'UNSUPPORTED_FILE', 'Upload an Excel or CSV file');
+    });
+    app.use(errorHandler(createLogger(testEnv), false));
+    const res = await request(app).get('/boom');
+    expect(res.status).toBe(415);
+    expect(res.body.error.code).toBe('UNSUPPORTED_FILE');
+  });
+
   it('errorHandler masks internal errors and never leaks stack traces', async () => {
     const app = express();
     app.get('/boom', () => {
