@@ -18,23 +18,32 @@ function required(name: string): string {
 }
 
 const nodeEnv = process.env.NODE_ENV;
-if (!['development', 'test'].includes(nodeEnv ?? '') || process.env.ALLOW_DEMO_SEED !== 'true') {
-  throw new Error('Demo seed refused: require NODE_ENV=development|test and ALLOW_DEMO_SEED=true');
+const localSeed = ['development', 'test'].includes(nodeEnv ?? '');
+const remoteStagingSeed =
+  nodeEnv === 'staging' &&
+  process.env.ALLOW_DEMO_DEPLOYMENT === 'true' &&
+  process.env.ALLOW_REMOTE_DEMO_SEED === 'true';
+if ((!localSeed && !remoteStagingSeed) || process.env.ALLOW_DEMO_SEED !== 'true') {
+  throw new Error(
+    'Demo seed refused: use a local development/test database, or explicitly enable the staging-only remote demo seed',
+  );
 }
 
 const databaseUrl = required('DATABASE_URL');
 const databaseHost = new URL(databaseUrl).hostname;
-if (!['127.0.0.1', 'localhost', '::1'].includes(databaseHost)) {
+if (!['127.0.0.1', 'localhost', '::1'].includes(databaseHost) && !remoteStagingSeed) {
   throw new Error(`Demo seed refused for non-local database host: ${databaseHost}`);
 }
 
 const prisma = new PrismaClient();
 
 const DEMO_PASSWORD = process.env.ATTENDANCE_DEMO_PASSWORD ?? required('DEMO_PASSWORD');
-const LEGACY_ADMIN_PASSWORD = required('LEGACY_ADMIN_PASSWORD');
-const LEGACY_DRIVER_PASSWORD = required('LEGACY_DRIVER_PASSWORD');
-const LEGACY_SUPERVISOR_PASSWORD = required('LEGACY_SUPERVISOR_PASSWORD');
-const LEGACY_STUDENT_PASSWORD = required('LEGACY_STUDENT_PASSWORD');
+const legacyPassword = (name: string): string =>
+  remoteStagingSeed ? (process.env[name] ?? DEMO_PASSWORD) : required(name);
+const LEGACY_ADMIN_PASSWORD = legacyPassword('LEGACY_ADMIN_PASSWORD');
+const LEGACY_DRIVER_PASSWORD = legacyPassword('LEGACY_DRIVER_PASSWORD');
+const LEGACY_SUPERVISOR_PASSWORD = legacyPassword('LEGACY_SUPERVISOR_PASSWORD');
+const LEGACY_STUDENT_PASSWORD = legacyPassword('LEGACY_STUDENT_PASSWORD');
 
 async function upsertTenant() {
   return prisma.tenant.upsert({

@@ -1,5 +1,10 @@
 import { z } from 'zod';
 
+const booleanString = z
+  .enum(['true', 'false'])
+  .default('false')
+  .transform((value) => value === 'true');
+
 export const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'staging', 'production']).default('development'),
@@ -34,6 +39,15 @@ export const envSchema = z
     LOG_LEVEL: z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
       .default('info'),
+    // Explicit escape hatch for the hackathon staging environment. This never
+    // permits a production boot with mock OTP/push/local-storage providers.
+    ALLOW_DEMO_DEPLOYMENT: booleanString,
+    // Public self-registration is disabled in the cloud demo because its OTP
+    // provider is intentionally a no-op. Seeded demo accounts remain usable.
+    PUBLIC_STUDENT_REGISTRATION: z
+      .enum(['true', 'false'])
+      .default('true')
+      .transform((value) => value === 'true'),
   })
   .superRefine((value, ctx) => {
     if (value.NODE_ENV === 'production') {
@@ -59,6 +73,13 @@ export const envSchema = z
           message: 'must differ from JWT_ACCESS_SECRET in production',
         });
       }
+      if (value.ALLOW_DEMO_DEPLOYMENT) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['ALLOW_DEMO_DEPLOYMENT'],
+          message: 'must be false in production',
+        });
+      }
     }
   });
 
@@ -77,6 +98,8 @@ const ENV_KEYS = [
   'LOGIN_RATE_LIMIT',
   'ATTENDANCE_CUTOFF',
   'LOG_LEVEL',
+  'ALLOW_DEMO_DEPLOYMENT',
+  'PUBLIC_STUDENT_REGISTRATION',
 ] as const;
 
 /**

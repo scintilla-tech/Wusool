@@ -203,6 +203,8 @@ flutter build web --release `
 - [`docs/TEST_COVERAGE.md`](docs/TEST_COVERAGE.md) — executed test evidence
 - [`docs/DUAL_ATTENDANCE_IMPLEMENTATION.md`](docs/DUAL_ATTENDANCE_IMPLEMENTATION.md) — attendance implementation and screenshots
 - [`docs/RUN_INSTRUCTIONS.md`](docs/RUN_INSTRUCTIONS.md) — complete local demonstration guide
+- [`docs/ANDROID_BUILD.md`](docs/ANDROID_BUILD.md) — Android build, installation, network, and Huawei guidance
+- [`docs/ANDROID_TEST_REPORT.md`](docs/ANDROID_TEST_REPORT.md) — APK build and no-GMS emulator verification
 - [`docs/REMAINING_ISSUES.md`](docs/REMAINING_ISSUES.md) — unresolved gaps and blockers
 
 ## Known limitations

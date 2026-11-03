@@ -12,7 +12,12 @@ export function notFoundHandler(_req: Request, res: Response): void {
 
 /** Return only safe, non-data fields from Zod issues to avoid reflecting input values. */
 function sanitizeIssues(issues: ZodIssue[]): Array<{ path: (string | number)[]; message: string }> {
-  return issues.map((issue) => ({ path: issue.path, message: issue.message }));
+  return issues.map((issue) => ({
+    path: issue.path.map((segment) =>
+      typeof segment === 'symbol' ? (segment.description ?? segment.toString()) : segment,
+    ),
+    message: issue.message,
+  }));
 }
 
 interface PrismaErrorLike {

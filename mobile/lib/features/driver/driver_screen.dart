@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
@@ -104,7 +105,20 @@ class _DriverScreenState extends ConsumerState<DriverScreen>
           permission == LocationPermission.deniedForever) {
         return;
       }
-      final position = await Geolocator.getCurrentPosition();
+      final locationSettings =
+          !kIsWeb && defaultTargetPlatform == TargetPlatform.android
+          ? AndroidSettings(
+              accuracy: LocationAccuracy.high,
+              forceLocationManager: true,
+              timeLimit: const Duration(seconds: 20),
+            )
+          : const LocationSettings(
+              accuracy: LocationAccuracy.high,
+              timeLimit: Duration(seconds: 20),
+            );
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: locationSettings,
+      );
       _socket.publishLocation(position.latitude, position.longitude);
     } catch (_) {
       // A missed device location sample is retried on the next bounded interval.

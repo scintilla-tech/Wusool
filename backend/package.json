@@ -10,6 +10,7 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
+    "deploy:start": "prisma migrate deploy && tsx prisma/seed.ts && node dist/server.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",
@@ -24,7 +25,8 @@
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:seed": "tsx prisma/seed.ts",
     "db:check-constraints": "tsx scripts/check-raw-constraints.ts",
-    "simulate:location": "tsx scripts/simulate-driver-location.ts"
+    "simulate:location": "tsx scripts/simulate-driver-location.ts",
+    "smoke:cloud-demo": "tsx scripts/cloud-demo-smoke.ts"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.2.1",
@@ -38,8 +40,10 @@
     "multer": "^2.3.0",
     "pino": "^9.6.0",
     "pino-http": "^10.3.0",
+    "prisma": "^6.5.0",
     "socket.io": "^4.8.3",
-    "zod": "^3.24.1"
+    "tsx": "^4.19.2",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
@@ -50,10 +54,8 @@
     "@types/supertest": "^6.0.2",
     "eslint": "^9.18.0",
     "prettier": "^3.4.2",
-    "prisma": "^6.5.0",
     "socket.io-client": "^4.8.3",
     "supertest": "^7.0.0",
-    "tsx": "^4.19.2",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0",
     "vite": "^8.3.4",
