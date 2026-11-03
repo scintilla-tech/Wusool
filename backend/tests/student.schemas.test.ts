@@ -11,7 +11,6 @@ describe('student home location validation', () => {
         firstName: 'Noor',
         lastName: 'Ali',
         phone: '0551234567',
-        password: 'Password#1',
         studentId: 'S1',
         homeLatitude: 24.7,
       },

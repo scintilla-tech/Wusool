@@ -23,11 +23,15 @@ export class OtpService {
     private readonly ttlMs: number = OTP_TTL_MS,
   ) {}
 
-  async generate(identifier: string): Promise<string> {
+  /**
+   * Stores a fresh code under `identifier` and sends it to `destination`
+   * (the identifier itself when omitted, e.g. a phone number).
+   */
+  async generate(identifier: string, destination: string = identifier): Promise<string> {
     const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
     this.store.set(identifier, { code, expiresAt: Date.now() + this.ttlMs });
     this.attempts.delete(identifier);
-    await this.provider.send(identifier, code);
+    await this.provider.send(destination, code);
     return code;
   }
 

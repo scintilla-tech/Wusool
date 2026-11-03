@@ -98,6 +98,7 @@ describe('sensitive-field DTO hygiene', () => {
       email: null,
       phone: '+966501234567',
       isActive: true,
+      passwordHash: '$argon2id$v=19$m=19456,t=2,p=1$c2FsdHNhbHQ$aGFzaGhhc2g',
       driverProfile: {
         employeeId: 'E1',
         nationalIdOrIqama: '1098765432',
@@ -118,7 +119,9 @@ describe('sensitive-field DTO hygiene', () => {
     expect(dto.licenseNumber).toBe('L1');
     expect(dto).not.toHaveProperty('nationalIdOrIqama');
     expect(dto).not.toHaveProperty('passwordHash');
+    expect(dto.isActivated).toBe(true);
     expect(JSON.stringify(dto)).not.toContain('1098765432');
+    expect(JSON.stringify(dto)).not.toContain('argon2');
   });
 });
 

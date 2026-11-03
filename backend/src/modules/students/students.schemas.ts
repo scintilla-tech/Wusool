@@ -13,7 +13,6 @@ export const studentCreateSchema = z
     lastName: nameSchema,
     phone: saudiPhoneSchema,
     email: emailSchema.optional(),
-    password: z.string().min(8, 'Password must be at least 8 characters').max(200),
     studentId: z.string().trim().min(1).max(64),
     homeLatitude: latitudeSchema.optional(),
     homeLongitude: longitudeSchema.optional(),

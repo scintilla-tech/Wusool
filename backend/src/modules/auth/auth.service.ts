@@ -84,6 +84,11 @@ export class AuthService {
       throw invalidCredentials();
     }
 
+    return this.startSession(user);
+  }
+
+  /** Issues a token pair and records the refresh session for a signed-in user. */
+  async startSession(user: User): Promise<TokenPair & { user: AuthUserDto }> {
     const accessToken = signAccessToken(
       { sub: user.id, type: 'access' },
       this.config.accessSecret,
