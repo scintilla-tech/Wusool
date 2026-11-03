@@ -311,23 +311,26 @@ class NdsFooter extends StatelessWidget {
   }
 }
 
-/// Scrollable page content with the canvas body padding and gaps, and
-/// pull-to-refresh when [onRefresh] is given.
+/// Scrollable page content with the canvas body padding and gaps,
+/// pull-to-refresh when [onRefresh] is given, and [onNearEnd] called as the
+/// reader nears the bottom (to load the next page of a list).
 class PageBody extends StatelessWidget {
   final List<Widget> children;
   final Future<void> Function()? onRefresh;
+  final VoidCallback? onNearEnd;
   final double gap;
 
   const PageBody({
     super.key,
     required this.children,
     this.onRefresh,
+    this.onNearEnd,
     this.gap = Space.xl,
   });
 
   @override
   Widget build(BuildContext context) {
-    final list = ListView(
+    Widget list = ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(
         horizontal: Space.xl,
@@ -340,6 +343,18 @@ class PageBody extends StatelessWidget {
         ],
       ],
     );
+    if (onNearEnd != null) {
+      list = NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          if (notification.metrics.axis == Axis.vertical &&
+              notification.metrics.extentAfter < 600) {
+            onNearEnd!();
+          }
+          return false;
+        },
+        child: list,
+      );
+    }
     if (onRefresh == null) return list;
     return RefreshIndicator(onRefresh: onRefresh!, child: list);
   }
@@ -960,6 +975,9 @@ class NdsField extends StatelessWidget {
   final TextInputAction? textInputAction;
   final Iterable<String>? autofillHints;
   final String? Function(String?)? validator;
+
+  /// An error found elsewhere (e.g. by the server), shown regardless of [validator].
+  final String? errorText;
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onFieldSubmitted;
 
@@ -976,6 +994,7 @@ class NdsField extends StatelessWidget {
     this.textInputAction,
     this.autofillHints,
     this.validator,
+    this.errorText,
     this.onChanged,
     this.onFieldSubmitted,
   });
@@ -1005,6 +1024,7 @@ class NdsField extends StatelessWidget {
             textInputAction: textInputAction,
             autofillHints: autofillHints,
             validator: validator,
+            forceErrorText: errorText,
             onChanged: onChanged,
             onFieldSubmitted: onFieldSubmitted,
             style: NdsText.textMd.copyWith(color: Nds.textDefault),
