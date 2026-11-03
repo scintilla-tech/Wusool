@@ -341,6 +341,47 @@ class AdminRoute {
   }
 }
 
+class TripSettings {
+  final bool autoTrips;
+
+  /// "05:30", Riyadh time.
+  final String autoTripTime;
+
+  const TripSettings({this.autoTrips = true, this.autoTripTime = '05:30'});
+
+  factory TripSettings.fromJson(Json m) => TripSettings(
+    autoTrips: m['autoTrips'] as bool? ?? true,
+    autoTripTime: m['autoTripTime'] as String? ?? '05:30',
+  );
+}
+
+/// Days without school: no trips are made automatically.
+class Holiday {
+  final String id;
+  final String name;
+  final DateTime start;
+
+  /// The last day off.
+  final DateTime end;
+  final int days;
+
+  const Holiday({
+    required this.id,
+    required this.name,
+    required this.start,
+    required this.end,
+    this.days = 1,
+  });
+
+  factory Holiday.fromJson(Json m) => Holiday(
+    id: m['id'] as String? ?? '',
+    name: m['name'] as String? ?? '',
+    start: DateTime.parse(m['startDate'] as String),
+    end: DateTime.parse(m['endDate'] as String),
+    days: _int(m['days']),
+  );
+}
+
 /// One page of a list, and how many there are in all.
 class PageOf<T> {
   final List<T> items;
@@ -566,6 +607,37 @@ class AdminApi {
       Neighborhood.fromJson(
         await _send('PATCH', '/structure/neighborhoods/$id', {'name': name}),
       );
+
+  /// Whether and when each school day's trips are made.
+  Future<TripSettings> tripSettings() async =>
+      TripSettings.fromJson(await _get('/admin/settings'));
+
+  Future<TripSettings> updateTripSettings({
+    bool? autoTrips,
+    String? autoTripTime,
+  }) async => TripSettings.fromJson(
+    await _send('PATCH', '/admin/settings', {
+      'autoTrips': ?autoTrips,
+      'autoTripTime': ?autoTripTime,
+    }),
+  );
+
+  /// Holidays not over yet, soonest first.
+  Future<List<Holiday>> holidays() async => [
+    for (final item in _list((await _get('/admin/holidays'))['items']))
+      Holiday.fromJson(item),
+  ];
+
+  /// Adds the holiday when [id] is null.
+  Future<Holiday> saveHoliday(String? id, Json values) async =>
+      Holiday.fromJson(
+        id == null
+            ? await _send('POST', '/admin/holidays', values)
+            : await _send('PATCH', '/admin/holidays/$id', values),
+      );
+
+  Future<void> deleteHoliday(String id) =>
+      _send('DELETE', '/admin/holidays/$id');
 
   Future<List<Neighborhood>> neighborhoods(String search) async => [
     for (final item in _list(
@@ -817,6 +889,14 @@ final neighborhoodDirectoryProvider = AsyncNotifierProvider.autoDispose
       NeighborhoodDirectory.new,
     );
 
+final tripSettingsProvider = FutureProvider.autoDispose<TripSettings>(
+  (ref) => ref.watch(adminApiProvider).tripSettings(),
+);
+
+final holidaysProvider = FutureProvider.autoDispose<List<Holiday>>(
+  (ref) => ref.watch(adminApiProvider).holidays(),
+);
+
 final branchesProvider = FutureProvider.autoDispose<List<Branch>>(
   (ref) => ref.watch(adminApiProvider).branches(),
 );
@@ -845,6 +925,7 @@ String adminFailure(Object error) => switch (apiErrorCode(error)) {
   'DUPLICATE_STOP' => 'لا يتكرر الحي في المسار نفسه',
   'ROUTE_TAKEN' => 'تشغّل هذا المسارَ حافلةٌ أخرى',
   'NAME_TAKEN' => 'يوجد حي بهذا الاسم',
+  'INVALID_RANGE' => 'تاريخ النهاية قبل البداية، أو الإجازة أطول من 120 يوماً',
   'RATE_LIMITED' => 'محاولات كثيرة، حاول بعد قليل',
   'VALIDATION_ERROR' => 'بعض القيم غير صحيحة',
   _ => 'تعذّر الاتصال بالخادم، حاول مرة أخرى',

@@ -10,6 +10,7 @@ import 'admin_widgets.dart';
 import 'bus_screens.dart';
 import 'place_screens.dart';
 import 'route_screens.dart';
+import 'trip_settings_screen.dart';
 
 enum TransportView {
   buses('الحافلات', 'إضافة حافلة', 'رقم اللوحة أو اسم الحافلة'),
@@ -25,7 +26,7 @@ enum TransportView {
 }
 
 /// Buses, routes, campuses and neighborhoods: search, page through, open or
-/// add one.
+/// add one. The buses view also pauses or resumes automatic trips.
 class AdminTransportScreen extends ConsumerStatefulWidget {
   final TransportView view;
   final ValueChanged<TransportView> onViewChanged;
@@ -61,6 +62,8 @@ class _AdminTransportScreenState extends ConsumerState<AdminTransportScreen> {
 
   Future<void> _refresh() async {
     refreshAdminData(ref);
+    ref.invalidate(tripSettingsProvider);
+    ref.invalidate(holidaysProvider);
     await switch (_view) {
       TransportView.buses => ref.read(busDirectoryProvider(_query).future),
       TransportView.routes => ref.read(routeDirectoryProvider(_query).future),
@@ -115,6 +118,7 @@ class _AdminTransportScreenState extends ConsumerState<AdminTransportScreen> {
             selected: _view,
             onSelected: widget.onViewChanged,
           ),
+          if (_view == TransportView.buses) const _AutoTripsCard(),
           SearchBox(
             key: ValueKey(_view),
             initial: _search[_view]!,
@@ -216,6 +220,44 @@ class _AdminTransportScreenState extends ConsumerState<AdminTransportScreen> {
         ],
         PagedFooter(paged: paged, onLoadMore: _loadMore),
       ],
+    );
+  }
+}
+
+/// Whether and when each school day's trips are made, and the next holiday;
+/// opens the trip settings.
+class _AutoTripsCard extends ConsumerWidget {
+  const _AutoTripsCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(tripSettingsProvider).value;
+    final next = ref.watch(holidaysProvider).value?.firstOrNull;
+    final on = settings?.autoTrips;
+    return NdsListItem(
+      leading: FeaturedIcon(
+        HugeIcons.strokeRoundedCalendar03,
+        tone: on == false ? Tone.neutral : Tone.primary,
+      ),
+      title: 'الرحلات التلقائية',
+      titleBadge: on == null
+          ? null
+          : NdsTag(
+              on ? 'تعمل' : 'موقوفة',
+              status: on ? TagStatus.success : TagStatus.warning,
+            ),
+      meta: settings == null
+          ? null
+          : on!
+          ? 'تُنشأ ${clockWords(settings.autoTripTime)} من الأحد إلى الخميس'
+          : 'يُنشئ السائقون رحلاتهم',
+      meta2: next == null
+          ? 'لا إجازات قادمة'
+          : 'الإجازة القادمة: ${next.name} · ${holidayRange(next)}',
+      chevron: true,
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const TripSettingsScreen()),
+      ),
     );
   }
 }
