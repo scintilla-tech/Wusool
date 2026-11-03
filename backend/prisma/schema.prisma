@@ -88,14 +88,16 @@ enum DevicePlatform {
 }
 
 model Tenant {
-  id        String   @id @default(cuid())
-  name      String
-  code      String   @unique
-  isActive  Boolean  @default(true)
+  id             String   @id @default(cuid())
+  name           String
+  code           String   @unique
+  isActive       Boolean  @default(true)
   /// Create each school day's trips automatically. Admins can pause it.
-  autoTrips Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  autoTrips      Boolean  @default(true)
+  /// When, in minutes after midnight Riyadh time (330 = 05:30).
+  autoTripMinute Int      @default(330)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   users                    User[]
   studentProfiles          StudentProfile[]
@@ -121,6 +123,8 @@ model Tenant {
   auditLogs                AuditLog[]
   importDrafts             ImportDraft[]
   autoTripRuns             AutoTripRun[]
+  holidays                 Holiday[]
+  driverAbsences           DriverAbsence[]
 }
 
 model User {
@@ -198,6 +202,8 @@ model DriverProfile {
   driverAssignments        DriverAssignment[]
   dailyTrips               DailyTrip[]         @relation("TripDriver")
   coveredDailyTrips        DailyTrip[]         @relation("TripCoveredDriver")
+  absences                 DriverAbsence[]     @relation("AbsentDriver")
+  absenceCovers            DriverAbsence[]     @relation("AbsenceCover")
   closedAttendanceSessions AttendanceSession[] @relation("AttendanceSessionClosedBy")
 
   @@unique([tenantId, employeeId])
@@ -342,6 +348,7 @@ model Bus {
   driverAssignments        DriverAssignment[]
   supervisorBusAssignments SupervisorBusAssignment[]
   dailyTrips               DailyTrip[]
+  driverAbsences           DriverAbsence[]
 
   @@unique([tenantId, plateNumber])
   @@index([tenantId])
@@ -636,4 +643,40 @@ model AutoTripRun {
   createdAt DateTime @default(now())
 
   @@unique([tenantId, tripDate])
+}
+
+/// Days without school: no trips are created automatically.
+model Holiday {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  name      String
+  startDate DateTime @db.Date
+  /// The last day off (inclusive).
+  endDate   DateTime @db.Date
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, startDate])
+}
+
+/// A driver cannot drive on a day; the bus's supervisor picks a cover, whose
+/// name the day's trips are created with.
+model DriverAbsence {
+  id                   String         @id @default(cuid())
+  tenantId             String
+  tenant               Tenant         @relation(fields: [tenantId], references: [id])
+  driverProfileId      String
+  driverProfile        DriverProfile  @relation("AbsentDriver", fields: [driverProfileId], references: [id])
+  busId                String
+  bus                  Bus            @relation(fields: [busId], references: [id])
+  date                 DateTime       @db.Date
+  note                 String?
+  coverDriverProfileId String?
+  coverDriverProfile   DriverProfile? @relation("AbsenceCover", fields: [coverDriverProfileId], references: [id])
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  @@unique([driverProfileId, date])
+  @@index([tenantId, busId, date])
 }
