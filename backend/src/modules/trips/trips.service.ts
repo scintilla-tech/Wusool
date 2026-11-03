@@ -1,8 +1,20 @@
-import { Prisma, type PrismaClient, type TripStatus } from '@prisma/client';
+import {
+  Prisma,
+  type PrismaClient,
+  type TripDirection,
+  type TripOrigin,
+  type TripStatus,
+} from '@prisma/client';
 import { AppError } from '../../utils/appError';
 import { dateOnly } from '../../utils/date';
 import type { TripCreateInput } from './trips.schemas';
 import type { TripEventBus } from './trip-events';
+
+/** 330 → "05:30". */
+export function clockOf(minuteOfDay: number): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(Math.floor(minuteOfDay / 60))}:${pad(minuteOfDay % 60)}`;
+}
 
 function isUniqueViolation(error: unknown): boolean {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
@@ -14,15 +26,50 @@ export class TripService {
     private readonly events?: TripEventBus,
   ) {}
 
-  // ----- Admin: create a daily trip and populate its student list -----
-  async createTrip(tenantId: string, input: TripCreateInput) {
+  /**
+   * Creates a daily trip with the route's students. Admins call it directly;
+   * the morning schedule and drivers call it with their `origin`.
+   */
+  async createTrip(
+    tenantId: string,
+    input: TripCreateInput,
+    options: {
+      origin?: TripOrigin;
+      actorUserId?: string;
+      /** The bus's own driver, when `input.driverProfileId` covers for them. */
+      coverFor?: string;
+    } = {},
+  ) {
     const direction = input.direction ?? 'OUTBOUND';
     await this.assertRoute(tenantId, input.routeId);
     await this.assertBus(tenantId, input.busId);
     await this.assertDriverProfile(tenantId, input.driverProfileId);
-    await this.assertDriverAssignedToBus(tenantId, input.driverProfileId, input.busId);
+    await this.assertDriverAssignedToBus(
+      tenantId,
+      options.coverFor ?? input.driverProfileId,
+      input.busId,
+    );
 
     const tripDate = dateOnly(input.tripDate);
+
+    // A route's attendance for a day and direction belongs to a single trip.
+    const routeTaken = await this.prisma.dailyTrip.findFirst({
+      where: {
+        tenantId,
+        routeId: input.routeId,
+        tripDate,
+        direction,
+        status: { not: 'CANCELLED' },
+      },
+      select: { id: true },
+    });
+    if (routeTaken) {
+      throw new AppError(
+        409,
+        'ROUTE_TRIP_EXISTS',
+        'The route already has a trip in this direction on this date',
+      );
+    }
 
     const conflict = await this.prisma.dailyTrip.findFirst({
       where: {
@@ -49,6 +96,13 @@ export class TripService {
       select: { studentProfileId: true },
     });
     const profileIds = assignments.map((a) => a.studentProfileId);
+    // The bus's supervisor follows the trip.
+    const supervisor = await this.prisma.supervisorBusAssignment.findFirst({
+      where: { tenantId, busId: input.busId, isActive: true },
+      orderBy: { assignedAt: 'desc' },
+      select: { supervisorProfileId: true },
+    });
+    const origin = options.origin ?? 'ADMIN';
 
     return this.prisma.$transaction(async (tx) => {
       const trip = await tx.dailyTrip.create({
@@ -57,11 +111,26 @@ export class TripService {
           routeId: input.routeId,
           busId: input.busId,
           driverProfileId: input.driverProfileId,
+          coveredDriverProfileId: options.coverFor ?? null,
+          supervisorProfileId: supervisor?.supervisorProfileId ?? null,
           tripDate,
           direction,
+          origin,
           status: 'SCHEDULED',
         },
       });
+      if (origin === 'DRIVER') {
+        await tx.auditLog.create({
+          data: {
+            tenantId,
+            actorUserId: options.actorUserId ?? null,
+            action: 'TRIP_CREATED_BY_DRIVER',
+            entityType: 'DailyTrip',
+            entityId: trip.id,
+            metadata: { direction },
+          },
+        });
+      }
       await tx.attendanceSession.upsert({
         where: {
           tenantId_routeId_operationalDate_direction: {
@@ -106,6 +175,113 @@ export class TripService {
     });
   }
 
+  // ----- Driver: their bus, and creating today's trip for it -----
+
+  /**
+   * The driver's bus, its fixed route with its stops, today's trips on it,
+   * when trips are made each morning, and today's holiday if there is one.
+   */
+  async getDriverBus(tenantId: string, driverUserId: string) {
+    const profile = await this.resolveDriverProfile(tenantId, driverUserId);
+    const today = dateOnly(new Date());
+    const [assignment, tenant, holiday] = await Promise.all([
+      this.prisma.driverAssignment.findFirst({
+        where: { tenantId, driverProfileId: profile.id, isActive: true, bus: { isActive: true } },
+        orderBy: { assignedAt: 'desc' },
+        select: {
+          bus: {
+            select: {
+              id: true,
+              plateNumber: true,
+              name: true,
+              route: {
+                select: {
+                  id: true,
+                  name: true,
+                  code: true,
+                  isActive: true,
+                  branch: { select: { id: true, name: true } },
+                  routeNeighborhoods: {
+                    orderBy: { sequenceOrder: 'asc' },
+                    select: { neighborhood: { select: { id: true, name: true } } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.tenant.findUniqueOrThrow({
+        where: { id: tenantId },
+        select: { autoTrips: true, autoTripMinute: true },
+      }),
+      this.prisma.holiday.findFirst({
+        where: { tenantId, startDate: { lte: today }, endDate: { gte: today } },
+        select: { name: true },
+      }),
+    ]);
+    const schedule = {
+      autoTrips: tenant.autoTrips,
+      autoTripTime: clockOf(tenant.autoTripMinute),
+      holiday: holiday?.name ?? null,
+    };
+    if (!assignment) return { bus: null, route: null, today: [], ...schedule };
+    const { route, ...bus } = assignment.bus;
+    const fixed = route?.isActive
+      ? {
+          id: route.id,
+          name: route.name,
+          code: route.code,
+          branch: route.branch,
+          stops: route.routeNeighborhoods.map((stop) => stop.neighborhood),
+        }
+      : null;
+    const trips = await this.prisma.dailyTrip.findMany({
+      where: { tenantId, busId: bus.id, tripDate: today, status: { not: 'CANCELLED' } },
+      select: { direction: true, status: true },
+    });
+    return { bus, route: fixed, today: trips, ...schedule };
+  }
+
+  /** A trip for today on the driver's bus, on the bus's fixed route. */
+  async createTripByDriver(
+    tenantId: string,
+    driverUserId: string,
+    input: { direction: TripDirection },
+  ) {
+    const profile = await this.resolveDriverProfile(tenantId, driverUserId);
+    const { bus, route } = await this.getDriverBus(tenantId, driverUserId);
+    if (!bus) throw new AppError(409, 'NO_BUS', 'The driver is not assigned to a bus');
+    if (!route) {
+      throw new AppError(409, 'NO_ROUTE', "Create the bus's route before its trips");
+    }
+    const today = dateOnly(new Date());
+    const existing = await this.prisma.dailyTrip.findFirst({
+      where: {
+        tenantId,
+        busId: bus.id,
+        tripDate: today,
+        direction: input.direction,
+        status: { not: 'CANCELLED' },
+      },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new AppError(409, 'TRIP_EXISTS', 'The bus already has this trip today');
+    }
+    return this.createTrip(
+      tenantId,
+      {
+        routeId: route.id,
+        busId: bus.id,
+        driverProfileId: profile.id,
+        tripDate: today,
+        direction: input.direction,
+      },
+      { origin: 'DRIVER', actorUserId: driverUserId },
+    );
+  }
+
   // ----- Driver: today's trip -----
   async getDriverToday(tenantId: string, driverUserId: string) {
     const trips = await this.findDriverTrips(tenantId, driverUserId, ['SCHEDULED', 'IN_PROGRESS']);
@@ -128,6 +304,9 @@ export class TripService {
       },
       include: {
         bus: true,
+        coveredDriverProfile: {
+          select: { user: { select: { firstName: true, lastName: true } } },
+        },
         route: {
           include: {
             routeNeighborhoods: {

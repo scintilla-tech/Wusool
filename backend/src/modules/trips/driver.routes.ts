@@ -3,7 +3,7 @@ import { asyncHandler } from '../../utils/asyncHandler';
 import { validate } from '../../middlewares/validate';
 import { createScopedRouter, type ScopeDeps } from '../../middlewares/scope';
 import { TripService } from './trips.service';
-import { tripStudentStatusSchema } from './trips.schemas';
+import { driverTripCreateSchema, tripStudentStatusSchema } from './trips.schemas';
 import type { TripService as TripServiceType } from './trips.service';
 import { AttendanceService } from '../attendance/attendance.service';
 import { closeAttendanceSchema, driverAttendanceSchema } from '../attendance/attendance.schemas';
@@ -32,6 +32,25 @@ export function createDriverRouter(
       const tenantId = req.auth?.tenantId as string;
       const data = await service.getDriverTodayTrips(tenantId, req.auth?.userId as string);
       res.json({ success: true, data });
+    }),
+  );
+
+  router.get(
+    '/bus',
+    asyncHandler(async (req, res) => {
+      const tenantId = req.auth?.tenantId as string;
+      const data = await service.getDriverBus(tenantId, req.auth?.userId as string);
+      res.json({ success: true, data });
+    }),
+  );
+
+  router.post(
+    '/trips',
+    validate({ body: driverTripCreateSchema }),
+    asyncHandler(async (req, res) => {
+      const tenantId = req.auth?.tenantId as string;
+      const data = await service.createTripByDriver(tenantId, req.auth?.userId as string, req.body);
+      res.status(201).json({ success: true, data });
     }),
   );
 
