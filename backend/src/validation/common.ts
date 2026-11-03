@@ -41,7 +41,7 @@ export const nameSchema = z
   .trim()
   .min(1, 'Name is required')
   .max(100, 'Name too long')
-  .regex(/^[\p{L}\s.'’-]+$/u, 'Name contains invalid characters');
+  .regex(/^[\p{L}\p{M}\s.'’-]+$/u, 'Name contains invalid characters');
 
 const numberOrNumericString = z.union([
   z.number(),
