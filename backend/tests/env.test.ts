@@ -64,6 +64,27 @@ describe('environment validation', () => {
     ).toThrow(/differ/i);
   });
 
+  it('allows the demo-provider escape hatch only outside production', () => {
+    const staging = loadEnvConfig({
+      ...validEnv,
+      NODE_ENV: 'staging',
+      ALLOW_DEMO_DEPLOYMENT: 'true',
+      PUBLIC_STUDENT_REGISTRATION: 'false',
+    });
+    expect(staging.ALLOW_DEMO_DEPLOYMENT).toBe(true);
+    expect(staging.PUBLIC_STUDENT_REGISTRATION).toBe(false);
+
+    expect(() =>
+      loadEnvConfig({
+        ...validEnv,
+        NODE_ENV: 'production',
+        JWT_ACCESS_SECRET: 'production-access-0123456789-abcdefghij',
+        JWT_REFRESH_SECRET: 'production-refresh-0123456789-abcdefghij',
+        ALLOW_DEMO_DEPLOYMENT: 'true',
+      }),
+    ).toThrow(/must be false in production/i);
+  });
+
   it('ignores unrelated environment variables', () => {
     const config = loadEnvConfig({ ...validEnv, PATH: 'C:\\Windows', TEMP: '/tmp', USERNAME: 'x' });
     expect(config.NODE_ENV).toBe('test');

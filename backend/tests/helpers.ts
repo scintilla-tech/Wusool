@@ -17,6 +17,8 @@ export const testEnv: EnvConfig = {
   LOGIN_RATE_LIMIT: 10,
   ATTENDANCE_CUTOFF: '07:00',
   LOG_LEVEL: 'silent',
+  ALLOW_DEMO_DEPLOYMENT: false,
+  PUBLIC_STUDENT_REGISTRATION: true,
 };
 
 export function mockPrisma(): PrismaClient {

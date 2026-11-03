@@ -4,6 +4,7 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 /// during an ACTIVE trip (server validates role/trip/bus/tenant).
 class SocketService {
   io.Socket? _socket;
+  Map<String, dynamic>? _pendingLocation;
 
   bool get connected => _socket?.connected ?? false;
 
@@ -25,6 +26,12 @@ class SocketService {
           .disableAutoConnect()
           .build(),
     );
+    _socket!.onConnect((_) {
+      final pendingLocation = _pendingLocation;
+      if (pendingLocation == null) return;
+      _socket!.emit('trip:location', pendingLocation);
+      _pendingLocation = null;
+    });
     if (onLocation != null) {
       _socket!.on('trip:location', (data) {
         if (data is Map) onLocation(data.cast<String, dynamic>());
@@ -52,15 +59,23 @@ class SocketService {
   }
 
   void publishLocation(double latitude, double longitude) {
-    _socket?.emit('trip:location', {
+    final location = <String, dynamic>{
       'latitude': latitude,
       'longitude': longitude,
       'timestamp': DateTime.now().millisecondsSinceEpoch,
-    });
+    };
+    if (connected) {
+      _socket!.emit('trip:location', location);
+    } else {
+      // Location can arrive before the initial Socket.IO handshake or while a
+      // mobile network is reconnecting. Keep only the newest bounded sample.
+      _pendingLocation = location;
+    }
   }
 
   void disconnect() {
     _socket?.dispose();
     _socket = null;
+    _pendingLocation = null;
   }
 }

@@ -19,11 +19,16 @@ flutter pub get
 flutter run -d chrome      # or -d windows / an attached device
 ```
 
-The backend base URL defaults to `http://localhost:3100/api/v1` and can be overridden:
+The backend base URL defaults to `http://localhost:3100/api/v1` on web/desktop and
+`http://10.0.2.2:3100/api/v1` on an Android emulator. It can be overridden:
 
 ```bash
 flutter run -d chrome --dart-define=API_BASE_URL=http://localhost:3100/api/v1
 ```
+
+For a physical Android phone, compile a reachable LAN address or an HTTPS endpoint; never
+use `localhost` or `127.0.0.1`. See [`../docs/ANDROID_BUILD.md`](../docs/ANDROID_BUILD.md)
+for APK build, installation, Huawei compatibility, and device test instructions.
 
 ## Verify
 
@@ -31,6 +36,9 @@ flutter run -d chrome --dart-define=API_BASE_URL=http://localhost:3100/api/v1
 flutter analyze
 flutter test
 flutter build web --release
+flutter build apk --release `
+  --dart-define=APP_ENV=demo `
+  --dart-define=API_BASE_URL=http://YOUR-LAN-IP:3100/api/v1
 ```
 
 ## Demo credentials (development)

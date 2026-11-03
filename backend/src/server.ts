@@ -13,9 +13,12 @@ const SHUTDOWN_TIMEOUT_MS = 10_000;
 
 async function main(): Promise<void> {
   const config = loadEnvConfig(process.env);
-  if (config.NODE_ENV === 'production' || config.NODE_ENV === 'staging') {
+  if (
+    config.NODE_ENV === 'production' ||
+    (config.NODE_ENV === 'staging' && !config.ALLOW_DEMO_DEPLOYMENT)
+  ) {
     throw new Error(
-      'Production/staging startup refused: real OTP, push, and private durable storage providers are not configured',
+      'Production/staging startup refused: real OTP, push, and private durable storage providers are not configured. A staging-only hackathon demo requires ALLOW_DEMO_DEPLOYMENT=true',
     );
   }
   const logger = createLogger(config);
