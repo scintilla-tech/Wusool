@@ -73,6 +73,13 @@ enum TripStatus {
   CANCELLED
 }
 
+/// Who made a daily trip: the morning schedule, the driver, or an admin.
+enum TripOrigin {
+  AUTOMATIC
+  DRIVER
+  ADMIN
+}
+
 enum DevicePlatform {
   IOS
   ANDROID
@@ -85,6 +92,8 @@ model Tenant {
   name      String
   code      String   @unique
   isActive  Boolean  @default(true)
+  /// Create each school day's trips automatically. Admins can pause it.
+  autoTrips Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -111,6 +120,7 @@ model Tenant {
   userDocuments            UserDocument[]
   auditLogs                AuditLog[]
   importDrafts             ImportDraft[]
+  autoTripRuns             AutoTripRun[]
 }
 
 model User {
@@ -186,7 +196,8 @@ model DriverProfile {
   updatedAt         DateTime         @updatedAt
 
   driverAssignments        DriverAssignment[]
-  dailyTrips               DailyTrip[]
+  dailyTrips               DailyTrip[]         @relation("TripDriver")
+  coveredDailyTrips        DailyTrip[]         @relation("TripCoveredDriver")
   closedAttendanceSessions AttendanceSession[] @relation("AttendanceSessionClosedBy")
 
   @@unique([tenantId, employeeId])
@@ -291,6 +302,8 @@ model Route {
   dailyTrips         DailyTrip[]
   attendanceSessions AttendanceSession[]
   studentAssignments StudentAssignment[]
+  /// The bus that runs this route every school day (at most one).
+  bus                Bus?
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -318,6 +331,10 @@ model Bus {
   plateNumber String
   name        String?
   capacity    Int?
+  /// The route this bus runs every school day; its trips are created from it.
+  /// A route's attendance belongs to one trip a day, so one bus per route.
+  routeId     String?  @unique
+  route       Route?   @relation(fields: [routeId], references: [id])
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -455,26 +472,30 @@ model AttendanceAudit {
 }
 
 model DailyTrip {
-  id                  String             @id @default(cuid())
-  tenantId            String
-  tenant              Tenant             @relation(fields: [tenantId], references: [id])
-  routeId             String?
-  route               Route?             @relation(fields: [routeId], references: [id])
-  busId               String?
-  bus                 Bus?               @relation(fields: [busId], references: [id])
-  driverProfileId     String?
-  driverProfile       DriverProfile?     @relation(fields: [driverProfileId], references: [id])
-  supervisorProfileId String?
-  supervisorProfile   SupervisorProfile? @relation(fields: [supervisorProfileId], references: [id])
-  tripDate            DateTime           @db.Date
-  direction           TripDirection      @default(OUTBOUND)
-  status              TripStatus         @default(SCHEDULED)
-  scheduledStartTime  DateTime?
-  scheduledEndTime    DateTime?
-  startedAt           DateTime?
-  completedAt         DateTime?
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
+  id                     String             @id @default(cuid())
+  tenantId               String
+  tenant                 Tenant             @relation(fields: [tenantId], references: [id])
+  routeId                String?
+  route                  Route?             @relation(fields: [routeId], references: [id])
+  busId                  String?
+  bus                    Bus?               @relation(fields: [busId], references: [id])
+  driverProfileId        String?
+  driverProfile          DriverProfile?     @relation("TripDriver", fields: [driverProfileId], references: [id])
+  /// The bus's own driver when a supervisor has another driver cover the trip.
+  coveredDriverProfileId String?
+  coveredDriverProfile   DriverProfile?     @relation("TripCoveredDriver", fields: [coveredDriverProfileId], references: [id])
+  origin                 TripOrigin         @default(ADMIN)
+  supervisorProfileId    String?
+  supervisorProfile      SupervisorProfile? @relation(fields: [supervisorProfileId], references: [id])
+  tripDate               DateTime           @db.Date
+  direction              TripDirection      @default(OUTBOUND)
+  status                 TripStatus         @default(SCHEDULED)
+  scheduledStartTime     DateTime?
+  scheduledEndTime       DateTime?
+  startedAt              DateTime?
+  completedAt            DateTime?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
 
   tripStudents      TripStudent[]
   attendanceSession AttendanceSession?
@@ -601,4 +622,18 @@ model ImportDraft {
   updatedAt   DateTime @updatedAt
 
   @@index([tenantId, role, updatedAt])
+}
+
+/// Marks that a tenant's school-day trips were created for a date, so the
+/// morning schedule runs once per day even with several servers.
+model AutoTripRun {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  tripDate  DateTime @db.Date
+  trips     Int      @default(0)
+  reminders Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, tripDate])
 }
