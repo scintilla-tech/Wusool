@@ -8,6 +8,7 @@ import { AssignmentsService } from './assignments.service';
 import {
   assignDriverSchema,
   assignStudentSchema,
+  assignStudentsToRouteSchema,
   assignSupervisorSchema,
 } from './assignments.schemas';
 
@@ -45,6 +46,16 @@ export function createAssignmentsRouter(deps: ScopeDeps): Router {
       res
         .status(201)
         .json({ success: true, data: await service.assignStudent(tenantOf(req), req.body) });
+    }),
+  );
+  router.post(
+    '/students/batch',
+    validate({ body: assignStudentsToRouteSchema }),
+    asyncHandler(async (req, res) => {
+      res.json({
+        success: true,
+        data: await service.assignStudentsToRoute(tenantOf(req), req.body),
+      });
     }),
   );
   router.delete(
