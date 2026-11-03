@@ -235,7 +235,7 @@ class _LiveTrackingState extends ConsumerState<_LiveTracking> {
               children: [
                 TileLayer(
                   urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.wasl.wasl_mobile',
+                  userAgentPackageName: 'tech.scintilla.wusool',
                 ),
                 MarkerLayer(
                   markers: [
@@ -263,6 +263,11 @@ class _LiveTrackingState extends ConsumerState<_LiveTracking> {
                         ),
                       ),
                     ),
+                  ],
+                ),
+                const RichAttributionWidget(
+                  attributions: [
+                    TextSourceAttribution('OpenStreetMap contributors'),
                   ],
                 ),
               ],
