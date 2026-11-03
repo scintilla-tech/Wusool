@@ -6,6 +6,7 @@ import '../../core/labels.dart';
 import '../../core/theme.dart';
 import '../../core/ui.dart';
 import '../auth/auth_state.dart';
+import '../home/notifications.dart';
 import 'supervisor_providers.dart';
 import 'supervisor_widgets.dart';
 
@@ -32,6 +33,7 @@ class SupervisorDashboardScreen extends ConsumerWidget {
         subtitle: field
             ? 'نظام النقل الجامعي للطالبات'
             : '${user?.firstName ?? ''} ${user?.lastName ?? ''}',
+        actions: [if (!field) const NotificationBell()],
       ),
       body: async.when(
         loading: () => const LoadingView(),

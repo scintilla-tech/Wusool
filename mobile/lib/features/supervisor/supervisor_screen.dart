@@ -5,6 +5,7 @@ import 'package:hugeicons/hugeicons.dart';
 import '../../core/ui.dart';
 import '../auth/auth_state.dart';
 import '../home/account_screen.dart';
+import '../home/notifications.dart';
 import 'field_bus_list_screen.dart';
 import 'supervisor_dashboard_screen.dart';
 import 'supervisor_providers.dart';
@@ -60,13 +61,19 @@ class _SupervisorScreenState extends ConsumerState<SupervisorScreen> {
           ];
     final index = _index.clamp(0, screens.length - 1);
 
-    return Scaffold(
+    final shell = Scaffold(
       body: IndexedStack(index: index, children: screens),
       bottomNavigationBar: NdsTabBar(
         currentIndex: index,
         onTap: (value) => setState(() => _index = value),
         items: tabs,
       ),
+    );
+    if (field) return shell;
+    // Bus supervisors hear when a driver cannot drive.
+    return NotificationWatcher(
+      onNew: () => ref.invalidate(supervisorBusesProvider),
+      child: shell,
     );
   }
 }
