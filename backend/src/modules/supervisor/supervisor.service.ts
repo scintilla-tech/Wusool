@@ -4,7 +4,34 @@ import { dateOnly } from '../../utils/date';
 
 export interface SupervisorBusView {
   bus: { id: string; plateNumber: string; name: string | null };
-  trip: { id: string; status: string; direction: string; routeName: string | null } | null;
+  trip: {
+    id: string;
+    status: string;
+    direction: string;
+    routeName: string | null;
+    /** Who drives the trip, and whose trip it was when a cover drives it. */
+    driverName: string | null;
+    coveredDriverName: string | null;
+  } | null;
+  /** The bus's own driver. */
+  regularDriverName: string | null;
+  /** Today's trips not started yet, which a cover driver can take. */
+  coverable: number;
+  /** Days off its driver reported, today onwards, with the cover if chosen. */
+  absences: Array<{
+    id: string;
+    date: string;
+    note: string | null;
+    driverName: string;
+    coverName: string | null;
+  }>;
+  /** Who drives each of today's trips, going first. */
+  drivers: Array<{
+    direction: string;
+    status: string;
+    driverName: string | null;
+    coveredDriverName: string | null;
+  }>;
   counts: { total: number; boarded: number; missed: number; waiting: number; notReady: number };
   attendanceSessions: Array<{
     direction: string;
@@ -83,11 +110,42 @@ export class SupervisorService {
         completedAt: true,
         busId: true,
         route: { select: { name: true } },
+        driverProfile: { select: { user: { select: { firstName: true, lastName: true } } } },
+        coveredDriverProfile: {
+          select: { user: { select: { firstName: true, lastName: true } } },
+        },
         tripStudents: { select: { status: true } },
         direction: true,
         attendanceSession: {
           select: { status: true, attendanceIntents: { select: { intent: true } } },
         },
+      },
+    });
+    const regulars = await this.prisma.driverAssignment.findMany({
+      where: { tenantId, busId: { in: buses.map((b) => b.id) }, isActive: true },
+      select: {
+        busId: true,
+        driverProfile: { select: { user: { select: { firstName: true, lastName: true } } } },
+      },
+    });
+    const regularByBus = new Map(
+      regulars.map((r) => [
+        r.busId,
+        `${r.driverProfile.user.firstName} ${r.driverProfile.user.lastName}`,
+      ]),
+    );
+    const nameOf = (profile: { user: { firstName: string; lastName: string } } | null) =>
+      profile ? `${profile.user.firstName} ${profile.user.lastName}` : null;
+    const absences = await this.prisma.driverAbsence.findMany({
+      where: { tenantId, busId: { in: buses.map((b) => b.id) }, date: { gte: today } },
+      orderBy: { date: 'asc' },
+      select: {
+        id: true,
+        busId: true,
+        date: true,
+        note: true,
+        driverProfile: { select: { user: { select: { firstName: true, lastName: true } } } },
+        coverDriverProfile: { select: { user: { select: { firstName: true, lastName: true } } } },
       },
     });
     const byBus = new Map<string | null, (typeof trips)[number][]>();
@@ -106,8 +164,29 @@ export class SupervisorService {
               status: trip.status,
               direction: trip.direction,
               routeName: trip.route?.name ?? null,
+              driverName: nameOf(trip.driverProfile),
+              coveredDriverName: nameOf(trip.coveredDriverProfile),
             }
           : null,
+        regularDriverName: regularByBus.get(bus.id) ?? null,
+        absences: absences
+          .filter((absence) => absence.busId === bus.id)
+          .map((absence) => ({
+            id: absence.id,
+            date: absence.date.toISOString().slice(0, 10),
+            note: absence.note,
+            driverName: nameOf(absence.driverProfile) ?? '',
+            coverName: nameOf(absence.coverDriverProfile),
+          })),
+        coverable: busTrips.filter((candidate) => candidate.status === 'SCHEDULED').length,
+        drivers: [...busTrips]
+          .sort((a, b) => a.direction.localeCompare(b.direction))
+          .map((candidate) => ({
+            direction: candidate.direction,
+            status: candidate.status,
+            driverName: nameOf(candidate.driverProfile),
+            coveredDriverName: nameOf(candidate.coveredDriverProfile),
+          })),
         counts: {
           total: students.length,
           boarded: count('BOARDED'),
@@ -115,18 +194,20 @@ export class SupervisorService {
           waiting: count('WAITING'),
           notReady: count('NOT_READY'),
         },
-        attendanceSessions: busTrips.map((candidate) => {
-          const intents = candidate.attendanceSession?.attendanceIntents ?? [];
-          const attending = intents.filter((intent) => intent.intent === 'ATTENDING').length;
-          const absent = intents.filter((intent) => intent.intent === 'ABSENT').length;
-          return {
-            direction: candidate.direction,
-            status: candidate.attendanceSession?.status ?? 'OPEN',
-            attending,
-            absent,
-            unregistered: Math.max(0, candidate.tripStudents.length - attending - absent),
-          };
-        }),
+        attendanceSessions: [...busTrips]
+          .sort((a, b) => a.direction.localeCompare(b.direction))
+          .map((candidate) => {
+            const intents = candidate.attendanceSession?.attendanceIntents ?? [];
+            const attending = intents.filter((intent) => intent.intent === 'ATTENDING').length;
+            const absent = intents.filter((intent) => intent.intent === 'ABSENT').length;
+            return {
+              direction: candidate.direction,
+              status: candidate.attendanceSession?.status ?? 'OPEN',
+              attending,
+              absent,
+              unregistered: Math.max(0, candidate.tripStudents.length - attending - absent),
+            };
+          }),
       };
     });
   }

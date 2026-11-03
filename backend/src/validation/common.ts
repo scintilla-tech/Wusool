@@ -70,6 +70,14 @@ export const isoDateSchema = z
   .refine((value) => !Number.isNaN(Date.parse(value)), 'Invalid date')
   .transform((value) => new Date(value));
 
+/** A calendar day as YYYY-MM-DD, read as that business date. */
+export const calendarDaySchema = z
+  .string()
+  .trim()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD')
+  .refine((value) => !Number.isNaN(Date.parse(`${value}T00:00:00Z`)), 'Invalid date')
+  .transform((value) => new Date(`${value}T00:00:00Z`));
+
 export const DEFAULT_PAGE_SIZE = 20;
 export const MAX_PAGE_SIZE = 100;
 
