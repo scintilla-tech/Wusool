@@ -16,6 +16,7 @@ import { createStudentsSelfRouter } from './modules/students/students.self.route
 import { createAssignmentsRouter } from './modules/assignments/assignments.routes';
 import { createAttendanceRouter } from './modules/attendance/attendance.routes';
 import { createTripsRouter } from './modules/trips/trips.routes';
+import { createPeopleRouter } from './modules/people/people.routes';
 import { createDriverRouter } from './modules/trips/driver.routes';
 import { createDevicesRouter } from './modules/devices/devices.routes';
 import { createNotificationsRouter } from './modules/notifications/notifications.routes';
@@ -103,6 +104,7 @@ export function createApp({
   app.use('/api/v1/students', createStudentsSelfRouter({ ...scopeDeps, locationService }));
   app.use('/api/v1/students', createStudentsRouter(scopeDeps));
   app.use('/api/v1/assignments', createAssignmentsRouter(scopeDeps));
+  app.use('/api/v1/people', createPeopleRouter(scopeDeps));
   app.use('/api/v1/attendance', createAttendanceRouter({ ...scopeDeps, tripEvents }));
   app.use('/api/v1/trips', createTripsRouter({ ...scopeDeps, tripService }));
   app.use('/api/v1/driver', createDriverRouter({ ...scopeDeps, tripService, tripEvents }));
