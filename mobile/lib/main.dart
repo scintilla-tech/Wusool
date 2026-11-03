@@ -29,6 +29,7 @@ Future<void> main() async {
 
   runApp(
     ProviderScope(
+      retry: retryUnlessClientError,
       overrides: [tokenStoreProvider.overrideWithValue(tokenStore)],
       child: const WaslApp(),
     ),

@@ -99,6 +99,22 @@ class ApiClient {
   }
 }
 
+/// The API's error code (e.g. `NO_ACTIVE_ROUTE`) carried by a failed request.
+String? apiErrorCode(Object error) {
+  if (error is! DioException) return null;
+  final data = error.response?.data;
+  final body = data is Map ? data['error'] : null;
+  return body is Map ? body['code'] as String? : null;
+}
+
+/// Riverpod retries failed providers by default. A 4xx answer will not
+/// change on its own, so retrying only keeps the screen spinning.
+Duration? retryUnlessClientError(int retryCount, Object error) {
+  final status = error is DioException ? error.response?.statusCode : null;
+  if (status != null && status >= 400 && status < 500) return null;
+  return ProviderContainer.defaultRetry(retryCount, error);
+}
+
 final apiClientProvider = Provider<ApiClient>((ref) {
   final config = ref.watch(configProvider);
   final tokenStore = ref.watch(tokenStoreProvider);
